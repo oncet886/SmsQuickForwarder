@@ -28,6 +28,7 @@ object DebugInfoBuilder {
             root.put("appBuild", appBuild(context))
             root.put("simInfo", simInfo(context))
             root.put("batteryOptimization", batteryOptimization(context))
+            root.put("permissionGuidance", permissionGuidance(context))
             root.put("stabilitySelfCheck", stabilitySelfCheck(context))
             root.put("recentEvents", ForwardLogStore.recentEvents(context, 20, includeFullBody, includeFullPhone))
         }.onFailure { e ->
@@ -45,7 +46,7 @@ object DebugInfoBuilder {
             append("构建信息\n")
             append(formatObject(json.optJSONObject("appBuild"))).append("\n\n")
             append("权限状态\n")
-            append(formatObject(json.optJSONObject("permissions"))).append("\n\n")
+            append(permissionSummary(context)).append("\n\n")
             append("系统信息\n")
             append(formatObject(json.optJSONObject("systemInfo"))).append("\n\n")
             append("稳定性自检\n")
@@ -97,6 +98,23 @@ object DebugInfoBuilder {
         put("RECEIVE_BOOT_COMPLETED", manifestDeclared(context, Manifest.permission.RECEIVE_BOOT_COMPLETED))
         put("READ_PHONE_STATE", if (manifestDeclared(context, Manifest.permission.READ_PHONE_STATE)) permissionState(context, Manifest.permission.READ_PHONE_STATE) else "not_declared")
     }
+
+    private fun permissionGuidance(context: Context) = JSONObject().apply {
+        put("sendSmsActionRequired", context.checkSelfPermission(Manifest.permission.SEND_SMS) != PackageManager.PERMISSION_GRANTED)
+        put("recommendedPath", "设置 → 应用 → SMS Quick Forwarder → 权限 → 短信 → 允许")
+    }
+
+    private fun permissionSummary(context: Context): String = buildString {
+        append("接收短信权限：").append(chinesePermissionState(context, Manifest.permission.RECEIVE_SMS)).append("\n")
+        append("发送短信权限：").append(chinesePermissionState(context, Manifest.permission.SEND_SMS)).append("\n")
+        append("通知权限：").append(if (notificationState(context) == "granted" || notificationState(context) == "not_required") "已允许" else "未允许")
+        if (context.checkSelfPermission(Manifest.permission.SEND_SMS) != PackageManager.PERMISSION_GRANTED) {
+            append("\n\n发送短信权限尚未开启。路径：设置 → 应用 → SMS Quick Forwarder → 权限 → 短信 → 允许")
+        }
+    }
+
+    private fun chinesePermissionState(context: Context, permission: String): String =
+        if (context.checkSelfPermission(permission) == PackageManager.PERMISSION_GRANTED) "已允许" else "未允许"
 
     private fun systemInfo(context: Context) = JSONObject().apply {
         val packageInfo = context.packageManager.getPackageInfo(context.packageName, 0)

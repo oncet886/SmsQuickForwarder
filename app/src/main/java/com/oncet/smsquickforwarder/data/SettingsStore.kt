@@ -7,6 +7,8 @@ object SettingsStore {
     private const val KEY_ENABLED = "enabled"
     private const val KEY_TARGET = "target"
     private const val KEY_SERVICE_RUNNING = "service_running"
+    private const val KEY_SETUP_GUIDE_SHOWN = "setup_guide_shown"
+    private const val KEY_SEND_SMS_REQUESTED = "send_sms_requested"
 
     fun isEnabled(context: Context): Boolean =
         context.getSharedPreferences(PREF, Context.MODE_PRIVATE).getBoolean(KEY_ENABLED, false)
@@ -27,5 +29,19 @@ object SettingsStore {
 
     fun setServiceRunning(context: Context, value: Boolean) {
         context.getSharedPreferences(PREF, Context.MODE_PRIVATE).edit().putBoolean(KEY_SERVICE_RUNNING, value).apply()
+    }
+
+    fun isSetupGuideShown(context: Context): Boolean =
+        context.getSharedPreferences(PREF, Context.MODE_PRIVATE).getBoolean(KEY_SETUP_GUIDE_SHOWN, false)
+
+    fun setSetupGuideShown(context: Context, value: Boolean) {
+        context.getSharedPreferences(PREF, Context.MODE_PRIVATE).edit().putBoolean(KEY_SETUP_GUIDE_SHOWN, value).apply()
+    }
+
+    fun wasSendSmsRequested(context: Context): Boolean =
+        context.getSharedPreferences(PREF, Context.MODE_PRIVATE).getBoolean(KEY_SEND_SMS_REQUESTED, false)
+
+    fun setSendSmsRequested(context: Context, value: Boolean) {
+        context.getSharedPreferences(PREF, Context.MODE_PRIVATE).edit().putBoolean(KEY_SEND_SMS_REQUESTED, value).apply()
     }
 }

@@ -68,6 +68,11 @@ class DebugActivity : Activity() {
         })
 
         root.addView(Button(this).apply {
+            text = "去设置"
+            setOnClickListener { openAppSettings() }
+        })
+
+        root.addView(Button(this).apply {
             text = "清空调试日志"
             setOnClickListener { confirmClearLogs() }
         })
@@ -141,7 +146,18 @@ class DebugActivity : Activity() {
     private fun openBatterySettings() {
         val intent = Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)
         runCatching { startActivity(intent) }.onFailure {
-            startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:$packageName")))
+            openAppSettings()
+        }
+    }
+
+    private fun openAppSettings() {
+        val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:$packageName"))
+        runCatching { startActivity(intent) }.onFailure {
+            Toast.makeText(
+                this,
+                "无法自动打开设置，请手动进入：设置 → 应用 → SMS Quick Forwarder → 权限 → 短信 → 允许",
+                Toast.LENGTH_LONG
+            ).show()
         }
     }
 
