@@ -1,6 +1,7 @@
 package com.oncet.smsquickforwarder
 
 import android.app.Activity
+import android.content.ActivityNotFoundException
 import android.app.AlertDialog
 import android.content.ClipData
 import android.content.ClipboardManager
@@ -14,6 +15,7 @@ import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
 import android.widget.Toast
+import androidx.core.content.FileProvider
 import com.oncet.smsquickforwarder.data.ForwardLogStore
 import com.oncet.smsquickforwarder.debug.DebugInfoBuilder
 import java.io.File
@@ -40,7 +42,7 @@ class DebugActivity : Activity() {
         }
 
         root.addView(TextView(this).apply {
-            text = "调试信息"
+            text = getString(R.string.debug_info)
             textSize = 22f
         })
 
@@ -58,13 +60,23 @@ class DebugActivity : Activity() {
         root.addView(includePhoneSwitch)
 
         root.addView(Button(this).apply {
-            text = "分享调试 JSON"
-            setOnClickListener { shareJson() }
+            text = getString(R.string.copy_diagnostic_summary)
+            setOnClickListener { copyDiagnosticSummary() }
         })
 
         root.addView(Button(this).apply {
-            text = "复制诊断摘要"
-            setOnClickListener { copyDiagnosticSummary() }
+            text = getString(R.string.copy_full_json)
+            setOnClickListener { copyFullJson() }
+        })
+
+        root.addView(Button(this).apply {
+            text = getString(R.string.share_as_text)
+            setOnClickListener { shareJsonAsText() }
+        })
+
+        root.addView(Button(this).apply {
+            text = getString(R.string.share_json_file)
+            setOnClickListener { shareJsonFile() }
         })
 
         root.addView(Button(this).apply {
@@ -73,7 +85,7 @@ class DebugActivity : Activity() {
         })
 
         root.addView(Button(this).apply {
-            text = "清空调试日志"
+            text = getString(R.string.clear_debug_logs)
             setOnClickListener { confirmClearLogs() }
         })
 
@@ -100,25 +112,73 @@ class DebugActivity : Activity() {
         debugText.text = DebugInfoBuilder.summaryText(this)
     }
 
-    private fun shareJson() {
-        val jsonText = DebugInfoBuilder.build(
-            this,
-            includeFullBody = includeBodySwitch.isChecked,
-            includeFullPhone = includePhoneSwitch.isChecked
-        ).toString(2)
-        val file = writeDebugJson(jsonText)
-        val uri = Uri.parse("content://$packageName.debugfileprovider/${file.name}")
-        val intent = Intent(Intent.ACTION_SEND).apply {
-            type = "application/json"
-            putExtra(Intent.EXTRA_SUBJECT, "SmsQuickForwarder Debug JSON")
-            putExtra(Intent.EXTRA_STREAM, uri)
-            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+    private fun currentJsonText(): String = DebugInfoBuilder.build(
+        this,
+        includeFullBody = includeBodySwitch.isChecked,
+        includeFullPhone = includePhoneSwitch.isChecked
+    ).toString(2)
+
+    private fun shareJsonFile() {
+        val jsonText = currentJsonText()
+        try {
+            val file = writeDebugJson(jsonText)
+            val uri = FileProvider.getUriForFile(this, "$packageName.debugfileprovider", file)
+            val intent = Intent(Intent.ACTION_SEND).apply {
+                type = "application/json"
+                putExtra(Intent.EXTRA_SUBJECT, "SmsQuickForwarder Debug JSON")
+                putExtra(Intent.EXTRA_STREAM, uri)
+                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                clipData = ClipData.newRawUri("sms_debug_json", uri)
+            }
+            startActivity(Intent.createChooser(intent, getString(R.string.share_json_file)))
+        } catch (e: ActivityNotFoundException) {
+            showShareFallbackDialog(jsonText)
+        } catch (e: SecurityException) {
+            showShareFallbackDialog(jsonText)
+        } catch (e: Exception) {
+            showShareFallbackDialog(jsonText)
         }
-        startActivity(Intent.createChooser(intent, "分享调试 JSON"))
+    }
+
+    private fun copyFullJson() {
+        copyTextToClipboard("SMS Quick Forwarder debug JSON", currentJsonText())
+        Toast.makeText(this, "调试 JSON 已复制，可以直接粘贴到聊天中", Toast.LENGTH_LONG).show()
+    }
+
+    private fun shareJsonAsText() {
+        val jsonText = currentJsonText()
+        try {
+            val intent = Intent(Intent.ACTION_SEND).apply {
+                type = "text/plain"
+                putExtra(Intent.EXTRA_TEXT, jsonText)
+                putExtra(Intent.EXTRA_SUBJECT, "SmsQuickForwarder Debug JSON")
+            }
+            startActivity(Intent.createChooser(intent, getString(R.string.share_as_text)))
+        } catch (e: Exception) {
+            copyTextToClipboard("SMS Quick Forwarder debug JSON", jsonText)
+            Toast.makeText(this, "分享失败，调试 JSON 已复制，可以直接粘贴到聊天中", Toast.LENGTH_LONG).show()
+        }
+    }
+
+    private fun showShareFallbackDialog(jsonText: String) {
+        AlertDialog.Builder(this)
+            .setTitle("分享 JSON 文件失败")
+            .setMessage("目标 App 可能不支持 JSON 文件。你可以复制完整 JSON，或改为纯文本分享。")
+            .setPositiveButton(getString(R.string.copy_full_json)) { _, _ ->
+                copyTextToClipboard("SMS Quick Forwarder debug JSON", jsonText)
+                Toast.makeText(this, "调试 JSON 已复制，可以直接粘贴到聊天中", Toast.LENGTH_LONG).show()
+            }
+            .setNegativeButton(getString(R.string.share_as_text)) { _, _ -> shareJsonAsText() }
+            .show()
+    }
+
+    private fun copyTextToClipboard(label: String, text: String) {
+        val clipboard = getSystemService(ClipboardManager::class.java)
+        clipboard.setPrimaryClip(ClipData.newPlainText(label, text))
     }
 
     private fun writeDebugJson(jsonText: String): File {
-        val dir = File(cacheDir, "debug-share").apply { mkdirs() }
+        val dir = File(cacheDir, "debug_exports").apply { mkdirs() }
         val timestamp = SimpleDateFormat("yyyyMMdd-HHmmss", Locale.US).format(Date())
         val file = File(dir, "sms-quick-forwarder-debug-$timestamp.json")
         OutputStreamWriter(file.outputStream(), Charsets.UTF_8).use { it.write(jsonText) }
@@ -126,8 +186,7 @@ class DebugActivity : Activity() {
     }
 
     private fun copyDiagnosticSummary() {
-        val clipboard = getSystemService(ClipboardManager::class.java)
-        clipboard.setPrimaryClip(ClipData.newPlainText("SMS Quick Forwarder diagnostics", DebugInfoBuilder.diagnosticSummary(this)))
+        copyTextToClipboard("SMS Quick Forwarder diagnostics", DebugInfoBuilder.diagnosticSummary(this))
         Toast.makeText(this, "诊断摘要已复制", Toast.LENGTH_SHORT).show()
     }
 

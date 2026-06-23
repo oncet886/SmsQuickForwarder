@@ -40,7 +40,7 @@ class ForwardForegroundService : Service() {
 
     private fun buildNotification() = android.app.Notification.Builder(this, CHANNEL_ID)
         .setSmallIcon(R.drawable.ic_notification)
-        .setContentTitle("短信转发已启用")
+        .setContentTitle(getString(R.string.forwarding_enabled))
         .setContentText("转发到：${SettingsStore.targetPhone(this)}")
         .setOngoing(true)
         .setContentIntent(

@@ -1,0 +1,15 @@
+<resources>
+    <string name="app_name">短信快转发</string>
+    <string name="debug_info">调试信息</string>
+    <string name="setup_help">设置帮助</string>
+    <string name="stability_check">稳定性自检</string>
+    <string name="copy_diagnostic_summary">复制诊断摘要</string>
+    <string name="copy_full_json">复制完整 JSON</string>
+    <string name="share_as_text">分享为文本</string>
+    <string name="share_json_file">分享 JSON 文件</string>
+    <string name="clear_debug_logs">清空调试日志</string>
+    <string name="forwarding_enabled">短信转发已启用</string>
+    <string name="forwarding_paused">短信转发已暂停</string>
+    <string name="ready_to_forward">可以正常转发</string>
+    <string name="setup_required">需要完成设置</string>
+</resources>

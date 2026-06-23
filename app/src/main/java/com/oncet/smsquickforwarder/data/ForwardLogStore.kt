@@ -326,7 +326,7 @@ object ForwardLogStore {
         if (includeFullBody) {
             return
         }
-        obj.put("bodyPreview", MessagePrivacyUtils.maskVerificationCodes(obj.optString("bodyPreview").take(80)))
+        obj.put("bodyPreview", MessagePrivacyUtils.previewForExport(obj.optString("bodyPreview"), includeFullBody))
         obj.remove("fullBody")
     }
 

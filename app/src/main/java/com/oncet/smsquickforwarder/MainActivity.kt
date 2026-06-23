@@ -48,7 +48,7 @@ class MainActivity : Activity() {
         }
 
         root.addView(TextView(this).apply {
-            text = "Sms Quick Forwarder"
+            text = getString(R.string.app_name)
             textSize = 22f
             gravity = Gravity.CENTER_VERTICAL
         })
@@ -111,7 +111,7 @@ class MainActivity : Activity() {
             layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
         })
         permissionHeader.addView(Button(this).apply {
-            text = "设置帮助"
+            text = getString(R.string.setup_help)
             setOnClickListener { showPermissionHelpDialog() }
         })
         root.addView(permissionHeader)
@@ -212,7 +212,7 @@ class MainActivity : Activity() {
         append("发送短信：").append(if (hasSendSmsPermission()) "已允许" else "未允许").append("\n")
         append("通知：").append(if (hasNotificationPermission()) "已允许" else "未允许").append("\n")
         append("电池后台运行：").append(if (isBatteryUnrestricted()) "不受限制" else "可能受限制").append("\n")
-        append("综合状态：").append(if (canForwardNormally()) "可以正常转发" else "需要完成设置")
+        append("综合状态：").append(if (canForwardNormally()) getString(R.string.ready_to_forward) else getString(R.string.setup_required))
         if (!hasSendSmsPermission()) {
             append("\n\n发送短信权限尚未开启。此权限用于把本机收到的短信转发到你设置的目标号码。")
             append("\n路径：设置 → 应用 → SMS Quick Forwarder → 权限 → 短信 → 允许")

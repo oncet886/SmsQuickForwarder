@@ -186,6 +186,13 @@ object DebugInfoBuilder {
         val serviceRunning = SettingsStore.isServiceRunning(context)
         val forwardingEnabled = SettingsStore.isEnabled(context)
         val batteryOk = isBatteryUnrestricted(context)
+        val lastFailureAt = ForwardLogStore.findLatestTime(context) { it.optString("decision").contains("failed", ignoreCase = true) }
+        val lastForwardSuccessAt = ForwardLogStore.findLatestTime(context) { it.optString("decision") == "forwarded" }
+        val lastRealSmsReceivedAt = ForwardLogStore.findLatestTime(context) { it.optString("eventType") == "sms_received" }
+        val lastRealSmsForwardedAt = ForwardLogStore.findLatestTime(context) {
+            it.optString("eventType") == "sms_received" && it.optString("decision") == "forwarded"
+        }
+        val failuresAfterLastSuccess = lastFailureAt.isNotBlank() && (lastForwardSuccessAt.isBlank() || lastFailureAt > lastForwardSuccessAt)
         val hardFail = !receiveSms || !sendSms || !targetSet
         val warning = forwardingEnabled && !serviceRunning || !batteryOk
         val overall = when {
@@ -206,10 +213,22 @@ object DebugInfoBuilder {
             put("smsReceiverDeclared", receiverDeclared(context, "SmsReceiver"))
             put("bootReceiverDeclared", receiverDeclared(context, "BootReceiver"))
             put("defaultSmsSubscriptionId", SubscriptionManager.getDefaultSmsSubscriptionId())
-            put("lastSmsReceivedAt", ForwardLogStore.findLatestTime(context) { it.optString("eventType") == "sms_received" })
-            put("lastForwardSuccessAt", ForwardLogStore.findLatestTime(context) { it.optString("decision") == "forwarded" })
-            put("lastFailureAt", ForwardLogStore.findLatestTime(context) { it.optString("decision").contains("failed", ignoreCase = true) })
+            put("lastSmsReceivedAt", lastRealSmsReceivedAt)
+            put("lastForwardSuccessAt", lastForwardSuccessAt)
+            put("lastFailureAt", lastFailureAt)
             put("lastFailureReason", ForwardLogStore.latestFailureReason(context))
+            put("failuresAfterLastSuccess", failuresAfterLastSuccess)
+            put("currentFailureActive", failuresAfterLastSuccess)
+            put("hasReceivedRealSms", lastRealSmsReceivedAt.isNotBlank())
+            put("lastRealSmsReceivedAt", lastRealSmsReceivedAt)
+            put("lastRealSmsForwardedAt", lastRealSmsForwardedAt)
+            put(
+                "realSmsStatus",
+                if (lastRealSmsForwardedAt.isNotBlank()) "真实短信转发已验证" else "尚未记录真实短信测试"
+            )
+            if (lastFailureAt.isNotBlank() && !failuresAfterLastSuccess) {
+                put("historicalFailureNote", "历史最近失败：${ForwardLogStore.latestFailureReason(context)}，之后已恢复正常")
+            }
         }
     }
 

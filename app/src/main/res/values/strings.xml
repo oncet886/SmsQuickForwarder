@@ -1,3 +1,15 @@
 <resources>
     <string name="app_name">SMS Quick Forwarder</string>
+    <string name="debug_info">Debug Info</string>
+    <string name="setup_help">Setup Help</string>
+    <string name="stability_check">Stability Check</string>
+    <string name="copy_diagnostic_summary">Copy Diagnostic Summary</string>
+    <string name="copy_full_json">Copy Full JSON</string>
+    <string name="share_as_text">Share as Text</string>
+    <string name="share_json_file">Share JSON File</string>
+    <string name="clear_debug_logs">Clear Debug Logs</string>
+    <string name="forwarding_enabled">Forwarding Enabled</string>
+    <string name="forwarding_paused">Forwarding Paused</string>
+    <string name="ready_to_forward">Ready to Forward</string>
+    <string name="setup_required">Setup Required</string>
 </resources>

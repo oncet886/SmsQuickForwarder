@@ -1,0 +1,15 @@
+<resources>
+    <string name="app_name">簡訊快轉發</string>
+    <string name="debug_info">偵錯資訊</string>
+    <string name="setup_help">設定說明</string>
+    <string name="stability_check">穩定性自檢</string>
+    <string name="copy_diagnostic_summary">複製診斷摘要</string>
+    <string name="copy_full_json">複製完整 JSON</string>
+    <string name="share_as_text">分享為文字</string>
+    <string name="share_json_file">分享 JSON 檔案</string>
+    <string name="clear_debug_logs">清空偵錯記錄</string>
+    <string name="forwarding_enabled">簡訊轉發已啟用</string>
+    <string name="forwarding_paused">簡訊轉發已暫停</string>
+    <string name="ready_to_forward">可以正常轉發</string>
+    <string name="setup_required">需要完成設定</string>
+</resources>
