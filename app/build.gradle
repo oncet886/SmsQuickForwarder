@@ -1,0 +1,100 @@
+plugins {
+    id 'com.android.application'
+    id 'org.jetbrains.kotlin.android'
+}
+
+import java.text.SimpleDateFormat
+import java.util.Locale
+
+def releaseKeystorePropsFile = rootProject.file("keystore/keystore.properties")
+def releaseKeystoreProps = new Properties()
+if (releaseKeystorePropsFile.exists()) {
+    releaseKeystorePropsFile.withInputStream { releaseKeystoreProps.load(it) }
+}
+
+def gitCommit = "unknown"
+try {
+    def stdout = new ByteArrayOutputStream()
+    exec {
+        commandLine "git", "rev-parse", "--short", "HEAD"
+        standardOutput = stdout
+        errorOutput = new ByteArrayOutputStream()
+        ignoreExitValue = true
+    }
+    def value = stdout.toString().trim()
+    if (!value.isEmpty()) gitCommit = value
+} catch (ignored) {
+}
+
+def buildTime = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss Z", Locale.US).format(new Date())
+
+android {
+    namespace 'com.oncet.smsquickforwarder'
+    compileSdk 35
+
+    defaultConfig {
+        applicationId 'com.oncet.smsquickforwarder'
+        minSdk 26
+        targetSdk 35
+        versionCode 4
+        versionName '0.1.3'
+        buildConfigField "String", "BUILD_TIME", "\"${buildTime}\""
+        buildConfigField "String", "GIT_COMMIT", "\"${gitCommit}\""
+    }
+
+    buildFeatures {
+        buildConfig true
+    }
+
+    signingConfigs {
+        release {
+            if (releaseKeystorePropsFile.exists()) {
+                storeFile rootProject.file(releaseKeystoreProps["storeFile"] ?: "")
+                storePassword releaseKeystoreProps["storePassword"]
+                keyAlias releaseKeystoreProps["keyAlias"]
+                keyPassword releaseKeystoreProps["keyPassword"]
+            }
+        }
+    }
+
+    buildTypes {
+        debug {
+            debuggable true
+        }
+        release {
+            debuggable false
+            minifyEnabled false
+            shrinkResources false
+            if (releaseKeystorePropsFile.exists()) {
+                signingConfig signingConfigs.release
+            }
+        }
+    }
+
+    applicationVariants.configureEach { variant ->
+        variant.outputs.configureEach { output ->
+            if (variant.buildType.name == "release") {
+                outputFileName = "SmsQuickForwarder-${variant.versionName}-${variant.versionCode}-release.apk"
+            }
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+
+    kotlinOptions {
+        jvmTarget = '17'
+    }
+}
+
+afterEvaluate {
+    tasks.matching { it.name == "preReleaseBuild" || it.name == "assembleRelease" || it.name == "bundleRelease" }.configureEach {
+        doFirst {
+            if (!releaseKeystorePropsFile.exists()) {
+                throw new GradleException("Release keystore config missing: keystore/keystore.properties. See RELEASE_BUILD.md.")
+            }
+        }
+    }
+}
