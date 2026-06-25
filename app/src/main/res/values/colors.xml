@@ -1,3 +1,14 @@
 <resources>
     <color name="launcher_icon_background">#0B7FA3</color>
+    <color name="app_background">#F6F8FA</color>
+    <color name="surface_card">#FFFFFF</color>
+    <color name="surface_stroke">#E2E8F0</color>
+    <color name="text_primary">#172033</color>
+    <color name="text_secondary">#64748B</color>
+    <color name="primary">#0B7FA3</color>
+    <color name="primary_soft">#E6F5F8</color>
+    <color name="success">#148A4A</color>
+    <color name="warning">#D97706</color>
+    <color name="danger">#D0342C</color>
+    <color name="muted">#6B7280</color>
 </resources>

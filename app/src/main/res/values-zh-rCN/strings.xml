@@ -34,4 +34,20 @@
     <string name="delete_rule">删除规则</string>
     <string name="rule_saved">规则已保存</string>
     <string name="invalid_regex">正则表达式无效</string>
+    <string name="home">首页</string>
+    <string name="rules">规则</string>
+    <string name="logs">记录</string>
+    <string name="about">我的</string>
+    <string name="running">运行中</string>
+    <string name="paused">已暂停</string>
+    <string name="permission_required">需要权限</string>
+    <string name="setup_incomplete">配置不完整</string>
+    <string name="recent_logs">最近记录</string>
+    <string name="view_all">查看全部</string>
+    <string name="current_version">当前版本</string>
+    <string name="build_number">构建号</string>
+    <string name="changelog">更新日志</string>
+    <string name="check_updates">检查更新</string>
+    <string name="github_repository">查看 GitHub 仓库</string>
+    <string name="github_releases">查看 GitHub Releases</string>
 </resources>

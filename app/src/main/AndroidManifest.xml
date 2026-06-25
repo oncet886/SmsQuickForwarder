@@ -45,6 +45,14 @@
             android:name=".LogDetailActivity"
             android:exported="false" />
 
+        <activity
+            android:name=".LogsActivity"
+            android:exported="false" />
+
+        <activity
+            android:name=".ChangelogActivity"
+            android:exported="false" />
+
         <receiver
             android:name=".receiver.SmsReceiver"
             android:enabled="true"

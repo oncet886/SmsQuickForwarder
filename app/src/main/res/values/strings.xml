@@ -34,4 +34,20 @@
     <string name="delete_rule">Delete Rule</string>
     <string name="rule_saved">Rule saved</string>
     <string name="invalid_regex">Invalid regex</string>
+    <string name="home">Home</string>
+    <string name="rules">Rules</string>
+    <string name="logs">Logs</string>
+    <string name="about">About</string>
+    <string name="running">Running</string>
+    <string name="paused">Paused</string>
+    <string name="permission_required">Permission Required</string>
+    <string name="setup_incomplete">Setup Incomplete</string>
+    <string name="recent_logs">Recent Logs</string>
+    <string name="view_all">View All</string>
+    <string name="current_version">Current Version</string>
+    <string name="build_number">Build Number</string>
+    <string name="changelog">Changelog</string>
+    <string name="check_updates">Check for Updates</string>
+    <string name="github_repository">GitHub Repository</string>
+    <string name="github_releases">GitHub Releases</string>
 </resources>

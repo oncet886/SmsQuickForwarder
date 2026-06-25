@@ -3,6 +3,8 @@ package com.oncet.smsquickforwarder
 import android.Manifest
 import android.app.Activity
 import android.app.AlertDialog
+import android.content.ClipData
+import android.content.ClipboardManager
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
@@ -10,265 +12,325 @@ import android.os.Build
 import android.os.Bundle
 import android.os.PowerManager
 import android.provider.Settings
+import android.text.InputType
 import android.view.Gravity
 import android.view.View
-import android.widget.Button
 import android.widget.EditText
 import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.Switch
-import android.widget.TextView
 import android.widget.Toast
 import com.oncet.smsquickforwarder.data.ForwardLogStore
 import com.oncet.smsquickforwarder.data.SettingsStore
+import com.oncet.smsquickforwarder.debug.DebugInfoBuilder
+import com.oncet.smsquickforwarder.rules.ForwardMode
 import com.oncet.smsquickforwarder.rules.RuleStore
+import com.oncet.smsquickforwarder.rules.RuleType
 import com.oncet.smsquickforwarder.service.ForwardForegroundService
 import com.oncet.smsquickforwarder.sms.SmsForwarder
+import com.oncet.smsquickforwarder.ui.UiKit
+import com.oncet.smsquickforwarder.util.MessagePrivacyUtils
 import com.oncet.smsquickforwarder.util.PhoneMaskUtils
 
 class MainActivity : Activity() {
-    private lateinit var enabledSwitch: Switch
-    private lateinit var targetInput: EditText
-    private lateinit var statusText: TextView
-    private lateinit var permissionText: TextView
-    private lateinit var serviceText: TextView
-    private lateinit var recentRoot: LinearLayout
-    private lateinit var sendSmsButton: Button
+    private lateinit var contentRoot: LinearLayout
+    private lateinit var navRoot: LinearLayout
+    private var currentTab = Tab.HOME
     private var refreshing = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        buildUi()
-        refresh()
+        buildShell()
+        render()
         maybeShowFirstRunGuide()
     }
 
-    private fun buildUi() {
-        val root = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            setPadding(32, 40, 32, 32)
-        }
-
-        root.addView(TextView(this).apply {
-            text = getString(R.string.app_name)
-            textSize = 22f
-            gravity = Gravity.CENTER_VERTICAL
-        })
-
-        root.addView(TextView(this).apply {
-            text = "本 App 只会在你开启转发后，将本机收到的短信转发到你设置的手机号。请只在你拥有或被授权管理的设备上使用。"
-            textSize = 14f
-            setPadding(0, 18, 0, 18)
-        })
-
-        statusText = TextView(this).apply {
-            textSize = 16f
-            setPadding(0, 8, 0, 14)
-        }
-        root.addView(statusText)
-
-        targetInput = EditText(this).apply {
-            hint = "输入转发目标手机号，例如 +1602xxxxxxx"
-            inputType = android.text.InputType.TYPE_CLASS_PHONE
-        }
-        root.addView(targetInput)
-
-        root.addView(Button(this).apply {
-            text = "保存目标手机号"
-            setOnClickListener {
-                SettingsStore.setTargetPhone(this@MainActivity, targetInput.text.toString())
-                refresh()
-            }
-        })
-
-        enabledSwitch = Switch(this).apply {
-            text = "启用短信转发"
-            setOnCheckedChangeListener { _, checked ->
-                if (refreshing) return@setOnCheckedChangeListener
-                if (checked && !canEnableForwarding()) {
-                    SettingsStore.setEnabled(this@MainActivity, false)
-                    setSwitchWithoutCallback(false)
-                    Toast.makeText(this@MainActivity, missingEnableMessage(), Toast.LENGTH_SHORT).show()
-                    requestMissingCorePermissions()
-                    refresh()
-                    return@setOnCheckedChangeListener
-                }
-                SettingsStore.setEnabled(this@MainActivity, checked)
-                if (checked) {
-                    startForegroundService(Intent(this@MainActivity, ForwardForegroundService::class.java))
-                } else {
-                    stopService(Intent(this@MainActivity, ForwardForegroundService::class.java))
-                    SettingsStore.setServiceRunning(this@MainActivity, false)
-                }
-                refresh()
-            }
-        }
-        root.addView(enabledSwitch)
-        root.addView(TextView(this).apply {
-            text = "关闭后仍会保留设置和日志，但不会转发新短信。"
-            textSize = 13f
-            setPadding(0, 0, 0, 14)
-        })
-
-        root.addView(TextView(this).apply {
-            text = "快捷操作"
-            textSize = 16f
-            setPadding(0, 12, 0, 4)
-        })
-        root.addView(Button(this).apply {
-            text = getString(R.string.rule_settings)
-            setOnClickListener { startActivity(Intent(this@MainActivity, RulesActivity::class.java)) }
-        })
-        root.addView(Button(this).apply {
-            text = getString(R.string.test_rules)
-            setOnClickListener { startActivity(Intent(this@MainActivity, RuleTestActivity::class.java)) }
-        })
-        root.addView(Button(this).apply {
-            text = "测试发送"
-            setOnClickListener {
-                SmsForwarder.sendTestMessage(this@MainActivity)
-                refresh()
-            }
-        })
-        root.addView(Button(this).apply {
-            text = getString(R.string.debug_info)
-            setOnClickListener { startActivity(Intent(this@MainActivity, DebugActivity::class.java)) }
-        })
-
-        val permissionHeader = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.CENTER_VERTICAL
-            setPadding(0, 20, 0, 4)
-        }
-        permissionHeader.addView(TextView(this).apply {
-            text = "权限与运行条件"
-            textSize = 16f
-            layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
-        })
-        permissionHeader.addView(Button(this).apply {
-            text = getString(R.string.setup_help)
-            setOnClickListener { showPermissionHelpDialog() }
-        })
-        root.addView(permissionHeader)
-
-        permissionText = TextView(this).apply { textSize = 14f }
-        root.addView(permissionText)
-
-        sendSmsButton = Button(this).apply {
-            text = "开启发送短信权限"
-            setOnClickListener { requestSendSmsPermission() }
-        }
-        root.addView(sendSmsButton)
-
-        root.addView(Button(this).apply {
-            text = "重新检查"
-            setOnClickListener {
-                refresh()
-                Toast.makeText(
-                    this@MainActivity,
-                    if (canForwardNormally()) "权限状态已更新" else "仍有设置未完成",
-                    Toast.LENGTH_SHORT
-                ).show()
-            }
-        })
-
-        root.addView(Button(this).apply {
-            text = "申请/检查权限"
-            setOnClickListener { requestNeededPermissions() }
-        })
-
-        serviceText = TextView(this).apply {
-            textSize = 14f
-            setPadding(0, 20, 0, 8)
-        }
-        root.addView(serviceText)
-
-        root.addView(Button(this).apply {
-            text = "电池优化设置"
-            setOnClickListener { openBatterySettings() }
-        })
-
-        root.addView(Button(this).apply {
-            text = "刷新日志"
-            setOnClickListener { refresh() }
-        })
-
-        root.addView(TextView(this).apply {
-            text = "最近记录"
-            textSize = 16f
-            setPadding(0, 20, 0, 0)
-        })
-        recentRoot = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
-        root.addView(recentRoot)
-
-        setContentView(ScrollView(this).apply { addView(root) })
+    override fun onResume() {
+        super.onResume()
+        if (::contentRoot.isInitialized) render()
     }
 
-    private fun refresh() {
-        setSwitchWithoutCallback(SettingsStore.isEnabled(this))
-        targetInput.setText(SettingsStore.targetPhone(this))
+    private fun buildShell() {
+        val shell = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setBackgroundColor(getColor(R.color.app_background))
+        }
+        val scroll = ScrollView(this).apply {
+            layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f)
+        }
+        contentRoot = UiKit.page(this)
+        scroll.addView(contentRoot)
+        navRoot = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            setPadding(UiKit.dp(this@MainActivity, 12), UiKit.dp(this@MainActivity, 8), UiKit.dp(this@MainActivity, 12), UiKit.dp(this@MainActivity, 10))
+            setBackgroundColor(getColor(R.color.surface_card))
+        }
+        shell.addView(scroll)
+        shell.addView(navRoot)
+        setContentView(shell)
+    }
 
+    private fun render() {
+        contentRoot.removeAllViews()
+        when (currentTab) {
+            Tab.HOME -> renderHome()
+            Tab.RULES -> renderRules()
+            Tab.LOGS -> renderLogsPreview()
+            Tab.ABOUT -> renderAbout()
+        }
+        renderNav()
+    }
+
+    private fun renderNav() {
+        navRoot.removeAllViews()
+        navRoot.addView(UiKit.navButton(this, getString(R.string.home), currentTab == Tab.HOME) { currentTab = Tab.HOME; render() })
+        navRoot.addView(UiKit.navButton(this, getString(R.string.rules), currentTab == Tab.RULES) { currentTab = Tab.RULES; render() })
+        navRoot.addView(UiKit.navButton(this, getString(R.string.logs), currentTab == Tab.LOGS) { currentTab = Tab.LOGS; render() })
+        navRoot.addView(UiKit.navButton(this, getString(R.string.about), currentTab == Tab.ABOUT) { currentTab = Tab.ABOUT; render() })
+    }
+
+    private fun renderHome() {
+        contentRoot.addView(UiKit.title(this, getString(R.string.app_name)))
+        contentRoot.addView(UiKit.subtitle(this, "只在你开启转发后处理本机收到的普通 SMS"))
+        contentRoot.addView(statusCard())
+        contentRoot.addView(targetCard())
+        contentRoot.addView(switchCard())
+        contentRoot.addView(quickActionsCard())
+        contentRoot.addView(permissionCard())
+        contentRoot.addView(recentPreviewCard(3))
+        contentRoot.addView(UiKit.subtitle(this, "${getString(R.string.current_version)} ${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})"))
+    }
+
+    private fun statusCard(): LinearLayout {
         val target = SettingsStore.targetPhone(this)
-        val targetSet = target.isNotBlank()
-        val appState = currentStateText()
         val lastSuccess = ForwardLogStore.findLatestTime(this) { isForwardSuccess(it.optString("decision")) }.ifBlank { "暂无" }
         val todaySuccess = ForwardLogStore.countToday(this) { isForwardSuccess(it.optString("decision")) }
         val todayFailed = ForwardLogStore.countToday(this) { it.optString("decision").contains("failed", ignoreCase = true) }
-        statusText.text = buildString {
-            append(appState).append("\n")
-            if (SettingsStore.isEnabled(this@MainActivity) && targetSet) {
-                append("收到符合规则的短信后，将自动转发到 ").append(PhoneMaskUtils.mask(target)).append("\n")
-            } else if (!SettingsStore.isEnabled(this@MainActivity)) {
-                append("短信转发已暂停\n")
-            }
-            append("转发目标：").append(if (targetSet) PhoneMaskUtils.mask(target) else "未设置").append("\n")
-            append("最近一次成功转发：").append(lastSuccess).append("\n")
-            append("今日成功 / 失败：").append(todaySuccess).append(" / ").append(todayFailed).append("\n")
-            append("转发模式：").append(RuleStore.forwardMode(this@MainActivity).name)
+        val state = currentState()
+        return UiKit.card(this).apply {
+            val row = UiKit.row(this@MainActivity)
+            row.addView(UiKit.body(this@MainActivity, "当前状态").apply {
+                textSize = 16f
+                layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
+            })
+            row.addView(UiKit.tag(this@MainActivity, state.label, state.color))
+            addView(row)
+            addView(UiKit.subtitle(this@MainActivity, if (SettingsStore.isEnabled(this@MainActivity) && target.isNotBlank()) "收到符合规则的短信后，将自动转发到 ${PhoneMaskUtils.mask(target)}" else "短信转发已暂停或配置未完成"))
+            addView(UiKit.divider(this@MainActivity))
+            addView(UiKit.body(this@MainActivity, "转发目标：${if (target.isNotBlank()) PhoneMaskUtils.mask(target) else "未设置"}"))
+            addView(UiKit.body(this@MainActivity, "最近成功：$lastSuccess"))
+            addView(UiKit.body(this@MainActivity, "今日成功 / 失败：$todaySuccess / $todayFailed"))
+            addView(UiKit.body(this@MainActivity, "转发模式：${modeLabel(RuleStore.forwardMode(this@MainActivity))}"))
         }
-        permissionText.text = permissionCardText()
-        sendSmsButton.visibility = if (hasSendSmsPermission()) View.GONE else View.VISIBLE
-        serviceText.text = "前台服务：${if (SettingsStore.isServiceRunning(this)) "运行中" else "未运行"}\n通知权限：${notificationStatus()}\n电池优化：${batteryStatus()}"
-        renderRecentEvents()
     }
 
-    private fun renderRecentEvents() {
-        recentRoot.removeAllViews()
-        val events = ForwardLogStore.recentUserEvents(this, 5)
-        if (events.length() == 0) {
-            recentRoot.addView(TextView(this).apply { text = "暂无有效短信记录" })
-            return
+    private fun targetCard(): LinearLayout {
+        val input = EditText(this).apply {
+            hint = "目标手机号"
+            inputType = InputType.TYPE_CLASS_PHONE
+            setText(SettingsStore.targetPhone(this@MainActivity))
         }
-        for (i in 0 until events.length()) {
-            val obj = events.getJSONObject(i)
-            recentRoot.addView(TextView(this).apply {
-                textSize = 13f
-                setPadding(0, 10, 0, 10)
-                text = buildString {
-                    append(obj.optString("receivedAt")).append("  ").append(decisionLabel(obj.optString("decision"))).append("\n")
-                    append(PhoneMaskUtils.mask(obj.optString("sender"))).append("  ")
-                    append(obj.optString("bodyPreview")).append("\n")
-                    append("规则：").append(obj.optString("primaryMatchedRuleName").ifBlank { "无" })
-                }
-                setOnClickListener {
-                    startActivity(Intent(this@MainActivity, LogDetailActivity::class.java).apply {
-                        putExtra(LogDetailActivity.EXTRA_EVENT_ID, obj.optString("eventId"))
-                    })
-                }
+        return UiKit.card(this).apply {
+            addView(UiKit.body(this@MainActivity, "转发目标"))
+            addView(input)
+            addView(UiKit.primaryButton(this@MainActivity, "保存目标手机号") {
+                SettingsStore.setTargetPhone(this@MainActivity, input.text.toString())
+                render()
             })
         }
     }
 
-    private fun currentStateText(): String = when {
-        !hasReceiveSmsPermission() || !hasSendSmsPermission() -> "需要权限"
-        SettingsStore.targetPhone(this).isBlank() -> "配置不完整"
-        SettingsStore.isEnabled(this) -> "短信转发运行中"
-        else -> "短信转发已暂停"
+    private fun switchCard(): LinearLayout {
+        val enabledSwitch = Switch(this).apply {
+            text = "启用短信转发"
+            refreshing = true
+            isChecked = SettingsStore.isEnabled(this@MainActivity)
+            refreshing = false
+            setOnCheckedChangeListener { _, checked ->
+                if (refreshing) return@setOnCheckedChangeListener
+                if (checked && !canEnableForwarding()) {
+                    SettingsStore.setEnabled(this@MainActivity, false)
+                    isChecked = false
+                    Toast.makeText(this@MainActivity, missingEnableMessage(), Toast.LENGTH_SHORT).show()
+                    requestMissingCorePermissions()
+                    render()
+                    return@setOnCheckedChangeListener
+                }
+                SettingsStore.setEnabled(this@MainActivity, checked)
+                if (checked) startForegroundService(Intent(this@MainActivity, ForwardForegroundService::class.java)) else {
+                    stopService(Intent(this@MainActivity, ForwardForegroundService::class.java))
+                    SettingsStore.setServiceRunning(this@MainActivity, false)
+                }
+                render()
+            }
+        }
+        return UiKit.card(this).apply {
+            addView(enabledSwitch)
+            addView(UiKit.subtitle(this@MainActivity, "关闭后仍保留设置和日志，但不会转发新短信。"))
+        }
+    }
+
+    private fun quickActionsCard(): LinearLayout = UiKit.card(this).apply {
+        addView(UiKit.body(this@MainActivity, "快捷操作"))
+        val row1 = UiKit.row(this@MainActivity)
+        row1.addView(gridButton("测试发送") {
+            SmsForwarder.sendTestMessage(this@MainActivity)
+            render()
+        })
+        row1.addView(gridButton("规则设置") { currentTab = Tab.RULES; render() })
+        val row2 = UiKit.row(this@MainActivity)
+        row2.addView(gridButton("最近记录") { currentTab = Tab.LOGS; render() })
+        row2.addView(gridButton(getString(R.string.debug_info)) { startActivity(Intent(this@MainActivity, DebugActivity::class.java)) })
+        addView(row1)
+        addView(row2)
+    }
+
+    private fun permissionCard(): LinearLayout = UiKit.card(this).apply {
+        val row = UiKit.row(this@MainActivity)
+        row.addView(UiKit.body(this@MainActivity, "权限与运行条件").apply { layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f) })
+        row.addView(UiKit.tag(this@MainActivity, if (canForwardNormally()) getString(R.string.ready_to_forward) else getString(R.string.setup_required), if (canForwardNormally()) getColor(R.color.success) else getColor(R.color.warning)))
+        addView(row)
+        addView(UiKit.divider(this@MainActivity))
+        addView(UiKit.body(this@MainActivity, "接收短信：${if (hasReceiveSmsPermission()) "已允许" else "未允许"}"))
+        addView(UiKit.body(this@MainActivity, "发送短信：${if (hasSendSmsPermission()) "已允许" else "未允许"}"))
+        addView(UiKit.body(this@MainActivity, "通知：${if (hasNotificationPermission()) "已允许" else "未允许"}"))
+        addView(UiKit.body(this@MainActivity, "电池后台运行：${if (isBatteryUnrestricted()) "不受限制" else "可能受限制"}"))
+        if (!hasSendSmsPermission()) {
+            addView(UiKit.subtitle(this@MainActivity, "发送短信权限尚未开启。此权限用于把本机收到的短信转发到你设置的目标号码。"))
+            addView(UiKit.primaryButton(this@MainActivity, "开启发送短信权限") { requestSendSmsPermission() })
+        }
+        val actions = UiKit.row(this@MainActivity)
+        actions.addView(gridButton(getString(R.string.setup_help)) { showPermissionHelpDialog() })
+        actions.addView(gridButton("重新检查") {
+            render()
+            Toast.makeText(this@MainActivity, if (canForwardNormally()) "权限状态已更新" else "仍有设置未完成", Toast.LENGTH_SHORT).show()
+        })
+        addView(actions)
+    }
+
+    private fun recentPreviewCard(limit: Int): LinearLayout = UiKit.card(this).apply {
+        val row = UiKit.row(this@MainActivity)
+        row.addView(UiKit.body(this@MainActivity, getString(R.string.recent_logs)).apply { layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f) })
+        row.addView(UiKit.secondaryButton(this@MainActivity, getString(R.string.view_all)) { currentTab = Tab.LOGS; render() })
+        addView(row)
+        val events = ForwardLogStore.recentUserEvents(this@MainActivity, limit)
+        if (events.length() == 0) {
+            addView(UiKit.subtitle(this@MainActivity, "暂无有效短信记录"))
+        } else {
+            for (i in 0 until events.length()) {
+                val obj = events.getJSONObject(i)
+                addView(UiKit.divider(this@MainActivity))
+                addView(UiKit.body(this@MainActivity, "${obj.optString("receivedAt")}  ${decisionLabel(obj.optString("decision"))}"))
+                addView(UiKit.subtitle(this@MainActivity, "${PhoneMaskUtils.mask(obj.optString("sender"))}  ${MessagePrivacyUtils.maskVerificationCodes(obj.optString("bodyPreview"))}\n规则：${obj.optString("primaryMatchedRuleName").ifBlank { "无" }}"))
+            }
+        }
+    }
+
+    private fun renderRules() {
+        contentRoot.addView(UiKit.title(this, getString(R.string.rules)))
+        val rules = RuleStore.rules(this)
+        val mode = RuleStore.forwardMode(this)
+        contentRoot.addView(UiKit.card(this).apply {
+            addView(UiKit.body(this@MainActivity, "${getString(R.string.forward_mode)}：${modeLabel(mode)}"))
+            addView(UiKit.subtitle(this@MainActivity, "已启用 ${rules.count { it.enabled }} · 包含 ${rules.count { it.type == RuleType.INCLUDE }} · 排除 ${rules.count { it.type == RuleType.EXCLUDE }}"))
+            addView(UiKit.primaryButton(this@MainActivity, if (mode == ForwardMode.ALL) "切换为仅匹配短信" else "切换为转发全部短信") {
+                val next = if (mode == ForwardMode.ALL) ForwardMode.MATCH_ONLY else ForwardMode.ALL
+                RuleStore.setForwardMode(this@MainActivity, next)
+                if (next == ForwardMode.MATCH_ONLY && rules.none { it.enabled && it.type == RuleType.INCLUDE }) {
+                    Toast.makeText(this@MainActivity, "当前没有包含规则，所有短信都会被跳过。", Toast.LENGTH_LONG).show()
+                }
+                render()
+            })
+        })
+        contentRoot.addView(UiKit.section(this, "主要操作"))
+        val actions = UiKit.card(this)
+        val row1 = UiKit.row(this)
+        row1.addView(gridButton("新建包含规则") { startActivity(Intent(this, RuleEditActivity::class.java).putExtra(RuleEditActivity.EXTRA_TYPE, RuleType.INCLUDE.name)) })
+        row1.addView(gridButton("新建排除规则") { startActivity(Intent(this, RuleEditActivity::class.java).putExtra(RuleEditActivity.EXTRA_TYPE, RuleType.EXCLUDE.name)) })
+        val row2 = UiKit.row(this)
+        row2.addView(gridButton(getString(R.string.test_rules)) { startActivity(Intent(this, RuleTestActivity::class.java)) })
+        row2.addView(gridButton("完整规则管理") { startActivity(Intent(this, RulesActivity::class.java)) })
+        actions.addView(row1)
+        actions.addView(row2)
+        contentRoot.addView(actions)
+        contentRoot.addView(UiKit.section(this, "规则列表"))
+        if (rules.isEmpty()) {
+            contentRoot.addView(UiKit.card(this).apply { addView(UiKit.body(this@MainActivity, "暂无规则。默认仍会转发全部普通短信。")) })
+        } else {
+            rules.take(20).forEach { rule ->
+                contentRoot.addView(UiKit.card(this).apply {
+                    val row = UiKit.row(this@MainActivity)
+                    row.addView(UiKit.body(this@MainActivity, "${rule.priority}. ${rule.name}").apply { layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f) })
+                    row.addView(UiKit.tag(this@MainActivity, if (rule.type == RuleType.INCLUDE) "包含" else "排除", if (rule.type == RuleType.INCLUDE) getColor(R.color.primary) else getColor(R.color.warning)))
+                    addView(row)
+                    addView(UiKit.subtitle(this@MainActivity, "${rule.field.name} / ${rule.matchMode.name} / ${rule.pattern.take(48)}\n${if (rule.enabled) "已启用" else "已停用"}"))
+                })
+            }
+        }
+        contentRoot.addView(UiKit.section(this, "高级操作"))
+        contentRoot.addView(UiKit.card(this).apply {
+            val row = UiKit.row(this@MainActivity)
+            row.addView(gridButton("复制规则 JSON") {
+                getSystemService(ClipboardManager::class.java).setPrimaryClip(ClipData.newPlainText("rules", RuleStore.exportRules(this@MainActivity, includePatterns = true)))
+                Toast.makeText(this@MainActivity, "规则 JSON 已复制", Toast.LENGTH_SHORT).show()
+            })
+            row.addView(gridButton("粘贴导入规则") { startActivity(Intent(this@MainActivity, RulesActivity::class.java)) })
+            addView(row)
+        })
+    }
+
+    private fun renderLogsPreview() {
+        contentRoot.addView(UiKit.title(this, getString(R.string.logs)))
+        contentRoot.addView(UiKit.subtitle(this, "最近短信处理记录"))
+        contentRoot.addView(recentPreviewCard(20))
+        contentRoot.addView(UiKit.primaryButton(this, "打开记录筛选页") { startActivity(Intent(this, LogsActivity::class.java)) })
+    }
+
+    private fun renderAbout() {
+        contentRoot.addView(UiKit.title(this, getString(R.string.about)))
+        contentRoot.addView(UiKit.card(this).apply {
+            addView(UiKit.body(this@MainActivity, getString(R.string.app_name)).apply { textSize = 18f })
+            addView(UiKit.subtitle(this@MainActivity, "短信快转发 / SMS Quick Forwarder"))
+            addView(UiKit.body(this@MainActivity, "${getString(R.string.current_version)}：${BuildConfig.VERSION_NAME}"))
+            addView(UiKit.body(this@MainActivity, "${getString(R.string.build_number)}：${BuildConfig.VERSION_CODE}"))
+            addView(UiKit.body(this@MainActivity, "applicationId：${BuildConfig.APPLICATION_ID}"))
+        })
+        contentRoot.addView(UiKit.card(this).apply {
+            addView(UiKit.body(this@MainActivity, "项目与更新"))
+            addView(UiKit.primaryButton(this@MainActivity, getString(R.string.changelog)) { startActivity(Intent(this@MainActivity, ChangelogActivity::class.java)) })
+            addView(UiKit.secondaryButton(this@MainActivity, getString(R.string.github_repository)) { openUrl("https://github.com/oncet886/SmsQuickForwarder") })
+            addView(UiKit.secondaryButton(this@MainActivity, getString(R.string.github_releases)) { openUrl("https://github.com/oncet886/SmsQuickForwarder/releases") })
+        })
+        contentRoot.addView(UiKit.card(this).apply {
+            addView(UiKit.body(this@MainActivity, "调试和支持"))
+            addView(UiKit.primaryButton(this@MainActivity, getString(R.string.debug_info)) { startActivity(Intent(this@MainActivity, DebugActivity::class.java)) })
+            addView(UiKit.secondaryButton(this@MainActivity, getString(R.string.copy_diagnostic_summary)) {
+                getSystemService(ClipboardManager::class.java).setPrimaryClip(ClipData.newPlainText("diagnostics", DebugInfoBuilder.diagnosticSummary(this@MainActivity)))
+                Toast.makeText(this@MainActivity, "诊断摘要已复制", Toast.LENGTH_SHORT).show()
+            })
+        })
+        contentRoot.addView(UiKit.card(this).apply {
+            addView(UiKit.body(this@MainActivity, "隐私与说明"))
+            addView(UiKit.subtitle(this@MainActivity, "本应用无 INTERNET 权限，不上传短信。调试 JSON 只有在你主动复制或分享时才会离开 App。自动发送短信可能产生运营商费用。"))
+        })
+    }
+
+    private fun gridButton(text: String, onClick: () -> Unit) = UiKit.secondaryButton(this, text, onClick).apply {
+        layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f).apply {
+            setMargins(UiKit.dp(this@MainActivity, 4), UiKit.dp(this@MainActivity, 5), UiKit.dp(this@MainActivity, 4), UiKit.dp(this@MainActivity, 5))
+        }
+    }
+
+    private fun currentState(): State = when {
+        !hasReceiveSmsPermission() || !hasSendSmsPermission() -> State(getString(R.string.permission_required), getColor(R.color.warning))
+        SettingsStore.targetPhone(this).isBlank() -> State(getString(R.string.setup_incomplete), getColor(R.color.warning))
+        SettingsStore.isEnabled(this) -> State(getString(R.string.running), getColor(R.color.success))
+        else -> State(getString(R.string.paused), getColor(R.color.muted))
     }
 
     private fun decisionLabel(decision: String): String = when {
         isForwardSuccess(decision) -> "已转发"
-        decision.contains("failed", ignoreCase = true) -> "发送失败"
+        decision.contains("failed", ignoreCase = true) -> "失败"
         decision.startsWith("skipped") -> "已跳过"
         else -> decision
     }
@@ -276,45 +338,25 @@ class MainActivity : Activity() {
     private fun isForwardSuccess(decision: String): Boolean =
         decision == "forwarded" || decision == "forwarded_rule_match" || decision == "forwarded_all_mode"
 
-    private fun setSwitchWithoutCallback(value: Boolean) {
-        refreshing = true
-        enabledSwitch.isChecked = value
-        refreshing = false
-    }
-
-    private fun permissionCardText(): String = buildString {
-        append("接收短信：").append(if (hasReceiveSmsPermission()) "已允许" else "未允许").append("\n")
-        append("发送短信：").append(if (hasSendSmsPermission()) "已允许" else "未允许").append("\n")
-        append("通知：").append(if (hasNotificationPermission()) "已允许" else "未允许").append("\n")
-        append("电池后台运行：").append(if (isBatteryUnrestricted()) "不受限制" else "可能受限制").append("\n")
-        append("综合状态：").append(if (canForwardNormally()) getString(R.string.ready_to_forward) else getString(R.string.setup_required))
-        if (!hasSendSmsPermission()) {
-            append("\n\n发送短信权限尚未开启。此权限用于把本机收到的短信转发到你设置的目标号码。")
-            append("\n路径：设置 → 应用 → SMS Quick Forwarder → 权限 → 短信 → 允许")
-        }
-    }
+    private fun modeLabel(mode: ForwardMode): String =
+        if (mode == ForwardMode.ALL) getString(R.string.forward_all_sms) else getString(R.string.forward_matched_sms_only)
 
     private fun maybeShowFirstRunGuide() {
         if (SettingsStore.isSetupGuideShown(this)) return
         SettingsStore.setSetupGuideShown(this, true)
         AlertDialog.Builder(this)
             .setTitle("开始使用")
-            .setMessage(
-                "1. 允许接收短信\n用于识别本机收到的普通短信。\n\n" +
-                    "2. 允许发送短信\n用于把短信转发到目标号码。\n\n" +
-                    "3. 设置电池为不受限制\n避免锁屏或后台时停止转发。"
-            )
+            .setMessage("1. 允许接收短信\n用于识别本机收到的普通短信。\n\n2. 允许发送短信\n用于把短信转发到目标号码。\n\n3. 设置电池为不受限制\n避免锁屏或后台时停止转发。")
             .setPositiveButton("开始设置") { _, _ -> requestNeededPermissions() }
             .show()
     }
 
     private fun requestSendSmsPermission() {
         if (hasSendSmsPermission()) {
-            refresh()
+            render()
             return
         }
-        val permanentlyDenied = SettingsStore.wasSendSmsRequested(this) &&
-            !shouldShowRequestPermissionRationale(Manifest.permission.SEND_SMS)
+        val permanentlyDenied = SettingsStore.wasSendSmsRequested(this) && !shouldShowRequestPermissionRationale(Manifest.permission.SEND_SMS)
         if (permanentlyDenied) {
             showSendSmsSettingsDialog()
             return
@@ -328,28 +370,22 @@ class MainActivity : Activity() {
         if (!hasReceiveSmsPermission()) missing.add(Manifest.permission.RECEIVE_SMS)
         if (!hasSendSmsPermission()) missing.add(Manifest.permission.SEND_SMS)
         if (missing.isEmpty()) return
-        if (missing.contains(Manifest.permission.SEND_SMS)) {
-            SettingsStore.setSendSmsRequested(this, true)
-        }
+        if (missing.contains(Manifest.permission.SEND_SMS)) SettingsStore.setSendSmsRequested(this, true)
         requestPermissions(missing.toTypedArray(), REQUEST_CORE_PERMISSIONS)
     }
 
     private fun requestNeededPermissions() {
         val missing = neededPermissions().filter { checkSelfPermission(it) != PackageManager.PERMISSION_GRANTED }
-        if (missing.contains(Manifest.permission.SEND_SMS)) {
-            SettingsStore.setSendSmsRequested(this, true)
-        }
+        if (missing.contains(Manifest.permission.SEND_SMS)) SettingsStore.setSendSmsRequested(this, true)
         if (missing.isNotEmpty()) requestPermissions(missing.toTypedArray(), REQUEST_ALL_PERMISSIONS)
-        refresh()
+        render()
     }
 
     override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
-        refresh()
+        render()
         val sendIndex = permissions.indexOf(Manifest.permission.SEND_SMS)
-        if (sendIndex >= 0 && !hasSendSmsPermission() && SettingsStore.wasSendSmsRequested(this) &&
-            !shouldShowRequestPermissionRationale(Manifest.permission.SEND_SMS)
-        ) {
+        if (sendIndex >= 0 && !hasSendSmsPermission() && SettingsStore.wasSendSmsRequested(this) && !shouldShowRequestPermissionRationale(Manifest.permission.SEND_SMS)) {
             showSendSmsSettingsDialog()
         }
     }
@@ -357,15 +393,7 @@ class MainActivity : Activity() {
     private fun showSendSmsSettingsDialog() {
         AlertDialog.Builder(this)
             .setTitle("需要开启发送短信权限")
-            .setMessage(
-                "SMS Quick Forwarder 需要发送短信权限，才能把收到的短信转发到目标号码。\n\n" +
-                    "请按以下步骤开启：\n\n" +
-                    "1. 打开应用信息\n" +
-                    "2. 点击‘权限’\n" +
-                    "3. 点击‘短信’\n" +
-                    "4. 选择‘允许’\n\n" +
-                    "三星手机通常路径为：\n设置 → 应用 → SMS Quick Forwarder → 权限 → 短信 → 允许"
-            )
+            .setMessage("SMS Quick Forwarder 需要发送短信权限，才能把收到的短信转发到目标号码。\n\n请按以下步骤开启：\n\n1. 打开应用信息\n2. 点击‘权限’\n3. 点击‘短信’\n4. 选择‘允许’\n\n三星手机通常路径为：\n设置 → 应用 → SMS Quick Forwarder → 权限 → 短信 → 允许")
             .setPositiveButton("打开应用设置") { _, _ -> openAppSettings() }
             .setNegativeButton("暂不设置", null)
             .show()
@@ -374,12 +402,7 @@ class MainActivity : Activity() {
     private fun showPermissionHelpDialog() {
         AlertDialog.Builder(this)
             .setTitle("短信权限设置")
-            .setMessage(
-                "三星手机：\n设置 → 应用 → SMS Quick Forwarder → 权限 → 短信 → 允许\n\n" +
-                    "其他安卓手机：\n设置 → 应用管理 → SMS Quick Forwarder → 权限管理 → 短信 → 允许\n\n" +
-                    "如果页面中只显示‘短信’，进入后选择‘允许’即可。\n\n" +
-                    "完成后返回 App，状态会自动刷新。"
-            )
+            .setMessage("三星手机：\n设置 → 应用 → SMS Quick Forwarder → 权限 → 短信 → 允许\n\n其他安卓手机：\n设置 → 应用管理 → SMS Quick Forwarder → 权限管理 → 短信 → 允许\n\n如果页面中只显示‘短信’，进入后选择‘允许’即可。\n\n完成后返回 App，状态会自动刷新。")
             .setPositiveButton("知道了", null)
             .show()
     }
@@ -387,17 +410,14 @@ class MainActivity : Activity() {
     private fun openAppSettings() {
         val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:$packageName"))
         runCatching { startActivity(intent) }.onFailure {
-            Toast.makeText(
-                this,
-                "无法自动打开设置，请手动进入：设置 → 应用 → SMS Quick Forwarder → 权限 → 短信 → 允许",
-                Toast.LENGTH_LONG
-            ).show()
+            Toast.makeText(this, "无法自动打开设置，请手动进入：设置 → 应用 → SMS Quick Forwarder → 权限 → 短信 → 允许", Toast.LENGTH_LONG).show()
         }
     }
 
-    private fun openBatterySettings() {
-        val intent = Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)
-        runCatching { startActivity(intent) }.onFailure { openAppSettings() }
+    private fun openUrl(url: String) {
+        runCatching { startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url))) }.onFailure {
+            Toast.makeText(this, "无法打开链接", Toast.LENGTH_SHORT).show()
+        }
     }
 
     private fun canEnableForwarding(): Boolean =
@@ -429,21 +449,13 @@ class MainActivity : Activity() {
     private fun hasNotificationPermission(): Boolean =
         Build.VERSION.SDK_INT < 33 || checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED
 
-    private fun notificationStatus(): String =
-        if (hasNotificationPermission()) "已授权" else "缺失，前台服务通知可能不可见"
-
     private fun isBatteryUnrestricted(): Boolean {
         val pm = getSystemService(PowerManager::class.java)
         return pm.isIgnoringBatteryOptimizations(packageName)
     }
 
-    private fun batteryStatus(): String =
-        if (isBatteryUnrestricted()) "未受系统电池优化限制" else "可能受系统电池优化限制"
-
-    override fun onResume() {
-        super.onResume()
-        refresh()
-    }
+    private enum class Tab { HOME, RULES, LOGS, ABOUT }
+    private data class State(val label: String, val color: Int)
 
     companion object {
         private const val REQUEST_SEND_SMS = 301
