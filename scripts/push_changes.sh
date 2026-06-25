@@ -14,6 +14,10 @@ fail() {
   exit 1
 }
 
+gh_clean() {
+  env -u GH_TOKEN -u GITHUB_TOKEN gh "$@"
+}
+
 [[ $# -eq 1 ]] || usage
 COMMIT_MESSAGE="$1"
 
@@ -26,8 +30,10 @@ check_repo() {
   origin_url="$(git remote get-url origin 2>/dev/null || true)"
   [[ "$origin_url" == "$EXPECTED_REMOTE" || "$origin_url" == "git@github.com:oncet886/SmsQuickForwarder.git" ]] || fail "origin points to wrong remote: ${origin_url}"
   command -v gh >/dev/null 2>&1 || fail "gh CLI is required."
-  gh auth status >/dev/null || fail "GitHub CLI is not logged in. Run gh auth login before pushing."
-  gh auth status 2>&1 | grep -q "oncet886" || fail "GitHub CLI must be logged in as oncet886."
+  gh_clean auth status >/dev/null || fail "GitHub CLI is not logged in through keyring. Run gh auth login before pushing."
+  local gh_login
+  gh_login="$(gh_clean api user --jq .login 2>/dev/null || true)"
+  [[ "$gh_login" == "oncet886" ]] || fail "GitHub CLI must be logged in as oncet886; current login is '${gh_login:-unknown}'."
 }
 
 check_sensitive_files() {
