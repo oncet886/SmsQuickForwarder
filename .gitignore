@@ -14,3 +14,5 @@ keystore/*.keystore
 keystore.zip
 *keystore*.zip
 *.apk
+*.apk.sha256
+*.sha256

@@ -104,6 +104,22 @@ gradle --no-daemon assembleDebug
 
 CI builds only the debug APK and runs unit tests. CI does not use the Release keystore.
 
+## Maintainer Release Workflow
+
+Feature, UI, rule, permission, Manifest, resource, or runtime changes should be released with:
+
+```bash
+./scripts/release.sh 0.1.7 8 "SmsQuickForwarder v0.1.7" "Describe the user-facing change."
+```
+
+Documentation-only or comment-only changes that do not affect the APK may be pushed with:
+
+```bash
+./scripts/push_changes.sh "docs: update README"
+```
+
+Release signing is performed locally on the maintainer's Mac with the fixed keystore. GitHub Actions only runs tests and builds Debug APKs. It does not hold the Release private key and does not publish signed Release APKs.
+
 ## Release Signing
 
 Release builds require a local keystore and `keystore/keystore.properties`. Do not commit either file.

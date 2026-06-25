@@ -61,3 +61,19 @@ Official project Release builds use this certificate SHA-256:
 ```text
 BC:29:EC:4B:7D:30:CC:1B:48:33:0E:C7:07:CC:E8:0D:57:C2:52:31:3F:F1:9C:A4:B7:CE:00:D8:14:57:27:17
 ```
+
+## 6. Maintainer release workflow
+
+Feature, UI, rule, permission, Manifest, resource, or runtime changes should be released with:
+
+```bash
+./scripts/release.sh 0.1.7 8 "SmsQuickForwarder v0.1.7" "Describe the user-facing change."
+```
+
+Documentation-only or comment-only changes that do not affect the APK may be pushed with:
+
+```bash
+./scripts/push_changes.sh "docs: update README"
+```
+
+Release signing is done locally on the maintainer's Mac with the fixed keystore. GitHub Actions only runs unit tests and unsigned debug CI builds. GitHub Actions does not hold the Release private key, and the project should not store the keystore in GitHub Secrets unless the signing strategy is explicitly changed in the future.
