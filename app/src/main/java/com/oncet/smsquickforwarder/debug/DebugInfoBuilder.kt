@@ -99,6 +99,7 @@ object DebugInfoBuilder {
         put("RECEIVE_SMS", permissionState(context, Manifest.permission.RECEIVE_SMS))
         put("SEND_SMS", permissionState(context, Manifest.permission.SEND_SMS))
         put("POST_NOTIFICATIONS", notificationState(context))
+        put("INTERNET", if (manifestDeclared(context, Manifest.permission.INTERNET)) "declared_update_check_only" else "not_declared")
         put("RECEIVE_BOOT_COMPLETED", manifestDeclared(context, Manifest.permission.RECEIVE_BOOT_COMPLETED))
         put("READ_PHONE_STATE", if (manifestDeclared(context, Manifest.permission.READ_PHONE_STATE)) permissionState(context, Manifest.permission.READ_PHONE_STATE) else "not_declared")
     }
@@ -111,7 +112,8 @@ object DebugInfoBuilder {
     private fun permissionSummary(context: Context): String = buildString {
         append("接收短信权限：").append(chinesePermissionState(context, Manifest.permission.RECEIVE_SMS)).append("\n")
         append("发送短信权限：").append(chinesePermissionState(context, Manifest.permission.SEND_SMS)).append("\n")
-        append("通知权限：").append(if (notificationState(context) == "granted" || notificationState(context) == "not_required") "已允许" else "未允许")
+        append("通知权限：").append(if (notificationState(context) == "granted" || notificationState(context) == "not_required") "已允许" else "未允许").append("\n")
+        append("网络权限：仅用于检查 GitHub Releases 新版本")
         if (context.checkSelfPermission(Manifest.permission.SEND_SMS) != PackageManager.PERMISSION_GRANTED) {
             append("\n\n发送短信权限尚未开启。路径：设置 → 应用 → SMS Quick Forwarder → 权限 → 短信 → 允许")
         }

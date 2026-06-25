@@ -17,6 +17,8 @@ import android.view.Gravity
 import android.view.View
 import android.widget.EditText
 import android.widget.LinearLayout
+import android.widget.RadioButton
+import android.widget.RadioGroup
 import android.widget.ScrollView
 import android.widget.Switch
 import android.widget.Toast
@@ -29,6 +31,13 @@ import com.oncet.smsquickforwarder.rules.RuleType
 import com.oncet.smsquickforwarder.service.ForwardForegroundService
 import com.oncet.smsquickforwarder.sms.SmsForwarder
 import com.oncet.smsquickforwarder.ui.UiKit
+import com.oncet.smsquickforwarder.update.UpdateCheckResult
+import com.oncet.smsquickforwarder.update.UpdateChecker
+import com.oncet.smsquickforwarder.update.UpdateFrequency
+import com.oncet.smsquickforwarder.update.UpdateInfo
+import com.oncet.smsquickforwarder.update.UpdateNotifier
+import com.oncet.smsquickforwarder.update.UpdatePreferences
+import com.oncet.smsquickforwarder.update.UpdateScheduler
 import com.oncet.smsquickforwarder.util.MessagePrivacyUtils
 import com.oncet.smsquickforwarder.util.PhoneMaskUtils
 
@@ -37,12 +46,17 @@ class MainActivity : Activity() {
     private lateinit var navRoot: LinearLayout
     private var currentTab = Tab.HOME
     private var refreshing = false
+    private var updateResult: UpdateCheckResult? = null
+    private var updateChecking = false
+    private var sessionHiddenUpdateVersion = ""
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         buildShell()
         render()
         maybeShowFirstRunGuide()
+        UpdateScheduler.configure(this)
+        scheduleStartupUpdateCheck()
     }
 
     override fun onResume() {
@@ -93,6 +107,7 @@ class MainActivity : Activity() {
         contentRoot.addView(UiKit.title(this, getString(R.string.app_name)))
         contentRoot.addView(UiKit.subtitle(this, "只在你开启转发后处理本机收到的普通 SMS"))
         contentRoot.addView(statusCard())
+        updatePromptCard()?.let { contentRoot.addView(it) }
         contentRoot.addView(targetCard())
         contentRoot.addView(switchCard())
         contentRoot.addView(quickActionsCard())
@@ -121,6 +136,33 @@ class MainActivity : Activity() {
             addView(UiKit.body(this@MainActivity, "最近成功：$lastSuccess"))
             addView(UiKit.body(this@MainActivity, "今日成功 / 失败：$todaySuccess / $todayFailed"))
             addView(UiKit.body(this@MainActivity, "转发模式：${modeLabel(RuleStore.forwardMode(this@MainActivity))}"))
+        }
+    }
+
+    private fun updatePromptCard(): LinearLayout? {
+        val result = updateResult as? UpdateCheckResult.UpdateAvailable ?: return null
+        val info = result.info
+        if (sessionHiddenUpdateVersion == info.latestVersionName || UpdatePreferences.ignoredVersion(this) == info.latestVersionName) return null
+        return UiKit.card(this).apply {
+            val row = UiKit.row(this@MainActivity)
+            row.addView(UiKit.body(this@MainActivity, "${getString(R.string.update_available)} ${info.latestVersionName}").apply {
+                textSize = 16f
+                layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
+            })
+            row.addView(UiKit.tag(this@MainActivity, "NEW", getColor(R.color.primary)))
+            addView(row)
+            addView(UiKit.subtitle(this@MainActivity, "当前版本 ${BuildConfig.VERSION_NAME}\n\n本次更新：\n${releaseNotesPreview(info.releaseNotes)}"))
+            val actions = UiKit.row(this@MainActivity)
+            actions.addView(gridButton(getString(R.string.view_update)) { openUrl(info.releaseUrl) })
+            actions.addView(gridButton(getString(R.string.ignore_this_version)) {
+                UpdatePreferences.ignoreVersion(this@MainActivity, info.latestVersionName)
+                render()
+            })
+            actions.addView(gridButton(getString(R.string.later)) {
+                sessionHiddenUpdateVersion = info.latestVersionName
+                render()
+            })
+            addView(actions)
         }
     }
 
@@ -295,6 +337,7 @@ class MainActivity : Activity() {
             addView(UiKit.body(this@MainActivity, "${getString(R.string.build_number)}：${BuildConfig.VERSION_CODE}"))
             addView(UiKit.body(this@MainActivity, "applicationId：${BuildConfig.APPLICATION_ID}"))
         })
+        contentRoot.addView(updateStatusCard())
         contentRoot.addView(UiKit.card(this).apply {
             addView(UiKit.body(this@MainActivity, "项目与更新"))
             addView(UiKit.primaryButton(this@MainActivity, getString(R.string.changelog)) { startActivity(Intent(this@MainActivity, ChangelogActivity::class.java)) })
@@ -311,8 +354,30 @@ class MainActivity : Activity() {
         })
         contentRoot.addView(UiKit.card(this).apply {
             addView(UiKit.body(this@MainActivity, "隐私与说明"))
-            addView(UiKit.subtitle(this@MainActivity, "本应用无 INTERNET 权限，不上传短信。调试 JSON 只有在你主动复制或分享时才会离开 App。自动发送短信可能产生运营商费用。"))
+            addView(UiKit.subtitle(this@MainActivity, "网络权限仅用于访问 GitHub Releases 检查新版本，不上传短信、号码、规则或日志。调试 JSON 只有在你主动复制或分享时才会离开 App。自动发送短信可能产生运营商费用。"))
         })
+    }
+
+    private fun updateStatusCard(): LinearLayout = UiKit.card(this).apply {
+        addView(UiKit.body(this@MainActivity, getString(R.string.version_updates)).apply { textSize = 16f })
+        addView(UiKit.body(this@MainActivity, "当前版本：${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})"))
+        addView(UiKit.body(this@MainActivity, "自动检查更新：${if (UpdatePreferences.autoCheckEnabled(this@MainActivity)) "开启" else "关闭"}"))
+        addView(UiKit.body(this@MainActivity, "检查频率：${frequencyLabel(UpdatePreferences.frequency(this@MainActivity))}"))
+        addView(UiKit.body(this@MainActivity, "上次检查：${formatCheckTime(UpdatePreferences.lastCheckAt(this@MainActivity))}"))
+        addView(UiKit.body(this@MainActivity, "当前状态：${updateStateLabel()}"))
+        val ignored = UpdatePreferences.ignoredVersion(this@MainActivity)
+        if (ignored.isNotBlank()) addView(UiKit.subtitle(this@MainActivity, "已忽略版本：$ignored"))
+        val row1 = UiKit.row(this@MainActivity)
+        row1.addView(gridButton(if (updateChecking) "检查中..." else getString(R.string.check_now)) { manualCheckUpdates() })
+        row1.addView(gridButton(getString(R.string.github_releases)) { openUrl("https://github.com/oncet886/SmsQuickForwarder/releases") })
+        val row2 = UiKit.row(this@MainActivity)
+        row2.addView(gridButton(getString(R.string.update_settings)) { showUpdateSettingsDialog() })
+        val latestUrl = (updateResult as? UpdateCheckResult.UpdateAvailable)?.info?.releaseUrl ?: UpdatePreferences.lastKnownReleaseUrl(this@MainActivity)
+        row2.addView(gridButton(getString(R.string.view_update)) {
+            openUrl(latestUrl.ifBlank { "https://github.com/oncet886/SmsQuickForwarder/releases" })
+        })
+        addView(row1)
+        addView(row2)
     }
 
     private fun gridButton(text: String, onClick: () -> Unit) = UiKit.secondaryButton(this, text, onClick).apply {
@@ -419,6 +484,122 @@ class MainActivity : Activity() {
             Toast.makeText(this, "无法打开链接", Toast.LENGTH_SHORT).show()
         }
     }
+
+    private fun scheduleStartupUpdateCheck() {
+        if (!UpdatePreferences.shouldCheckNow(this)) return
+        Thread {
+            runCatching {
+                Thread.sleep(2_000)
+                val result = UpdateChecker.create(this).check()
+                UpdatePreferences.recordResult(this, result)
+                if (result is UpdateCheckResult.UpdateAvailable) UpdateNotifier.notifyIfNeeded(this, result.info)
+                runOnUiThread {
+                    updateResult = result
+                    if (::contentRoot.isInitialized) render()
+                }
+            }
+        }.start()
+    }
+
+    private fun manualCheckUpdates() {
+        if (updateChecking) return
+        updateChecking = true
+        render()
+        Thread {
+            val result = UpdateChecker.create(this).check()
+            UpdatePreferences.recordResult(this, result)
+            if (result is UpdateCheckResult.UpdateAvailable) UpdateNotifier.notifyIfNeeded(this, result.info)
+            runOnUiThread {
+                updateChecking = false
+                updateResult = result
+                Toast.makeText(this, updateStateLabel(result), Toast.LENGTH_SHORT).show()
+                render()
+            }
+        }.start()
+    }
+
+    private fun showUpdateSettingsDialog() {
+        val container = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(UiKit.dp(this@MainActivity, 8), UiKit.dp(this@MainActivity, 6), UiKit.dp(this@MainActivity, 8), 0)
+        }
+        val autoSwitch = Switch(this).apply {
+            text = "自动检查更新"
+            isChecked = UpdatePreferences.autoCheckEnabled(this@MainActivity)
+        }
+        val notificationSwitch = Switch(this).apply {
+            text = "后台通知"
+            isChecked = UpdatePreferences.notificationsEnabled(this@MainActivity)
+        }
+        val group = RadioGroup(this).apply {
+            orientation = RadioGroup.VERTICAL
+        }
+        val daily = frequencyRadio("每天", UpdateFrequency.DAILY)
+        val weekly = frequencyRadio("每周", UpdateFrequency.WEEKLY)
+        val startup = frequencyRadio("仅启动时", UpdateFrequency.ON_APP_START_ONLY)
+        group.addView(daily)
+        group.addView(weekly)
+        group.addView(startup)
+        when (UpdatePreferences.frequency(this)) {
+            UpdateFrequency.DAILY -> daily.isChecked = true
+            UpdateFrequency.WEEKLY -> weekly.isChecked = true
+            UpdateFrequency.ON_APP_START_ONLY -> startup.isChecked = true
+        }
+        container.addView(autoSwitch)
+        container.addView(UiKit.subtitle(this, "检查 GitHub Releases，只读取公开版本信息。"))
+        container.addView(notificationSwitch)
+        if (!hasNotificationPermission()) container.addView(UiKit.subtitle(this, "通知权限未允许时，只显示 App 内提醒。"))
+        container.addView(UiKit.body(this, "检查频率"))
+        container.addView(group)
+        val ignored = UpdatePreferences.ignoredVersion(this)
+        container.addView(UiKit.subtitle(this, "已忽略版本：${ignored.ifBlank { "无" }}"))
+        AlertDialog.Builder(this)
+            .setTitle(getString(R.string.update_settings))
+            .setView(container)
+            .setPositiveButton("保存") { _, _ ->
+                UpdatePreferences.setAutoCheckEnabled(this, autoSwitch.isChecked)
+                UpdatePreferences.setNotificationsEnabled(this, notificationSwitch.isChecked)
+                UpdatePreferences.setFrequency(this, selectedFrequency(group.checkedRadioButtonId))
+                UpdateScheduler.configure(this)
+                render()
+            }
+            .setNeutralButton("清除忽略版本") { _, _ ->
+                UpdatePreferences.clearIgnoredVersion(this)
+                render()
+            }
+            .setNegativeButton("取消", null)
+            .show()
+    }
+
+    private fun frequencyRadio(label: String, frequency: UpdateFrequency): RadioButton =
+        RadioButton(this).apply {
+            text = label
+            id = frequency.ordinal + 10_000
+        }
+
+    private fun selectedFrequency(checkedId: Int): UpdateFrequency =
+        UpdateFrequency.values().firstOrNull { it.ordinal + 10_000 == checkedId } ?: UpdateFrequency.DAILY
+
+    private fun frequencyLabel(frequency: UpdateFrequency): String = when (frequency) {
+        UpdateFrequency.DAILY -> "每天"
+        UpdateFrequency.WEEKLY -> "每周"
+        UpdateFrequency.ON_APP_START_ONLY -> "仅启动时"
+    }
+
+    private fun updateStateLabel(result: UpdateCheckResult? = updateResult): String = when (result) {
+        is UpdateCheckResult.UpdateAvailable -> "发现新版本 ${result.info.latestVersionName}"
+        is UpdateCheckResult.UpToDate -> getString(R.string.up_to_date)
+        is UpdateCheckResult.Error -> "检查失败：${result.message}"
+        null -> if (UpdatePreferences.lastKnownLatestVersion(this).isBlank()) "尚未检查" else "最近发现 ${UpdatePreferences.lastKnownLatestVersion(this)}"
+    }
+
+    private fun releaseNotesPreview(notes: String): String {
+        val lines = notes.lines().map { it.trim().trimStart('-', '*').trim() }.filter { it.isNotBlank() }
+        return lines.take(4).joinToString("\n") { "- $it" }.ifBlank { "- 查看 GitHub Release 获取详情" }
+    }
+
+    private fun formatCheckTime(timestamp: Long): String =
+        if (timestamp <= 0L) "尚未检查" else java.text.SimpleDateFormat("yyyy-MM-dd HH:mm", java.util.Locale.US).format(java.util.Date(timestamp))
 
     private fun canEnableForwarding(): Boolean =
         SettingsStore.targetPhone(this).isNotBlank() && hasReceiveSmsPermission() && hasSendSmsPermission()

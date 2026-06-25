@@ -50,4 +50,12 @@
     <string name="check_updates">Check for Updates</string>
     <string name="github_repository">GitHub Repository</string>
     <string name="github_releases">GitHub Releases</string>
+    <string name="version_updates">Version Updates</string>
+    <string name="update_available">Update Available</string>
+    <string name="up_to_date">Up to Date</string>
+    <string name="check_now">Check Now</string>
+    <string name="update_settings">Update Settings</string>
+    <string name="ignore_this_version">Ignore This Version</string>
+    <string name="later">Later</string>
+    <string name="view_update">View Update</string>
 </resources>

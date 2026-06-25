@@ -50,4 +50,12 @@
     <string name="check_updates">检查更新</string>
     <string name="github_repository">查看 GitHub 仓库</string>
     <string name="github_releases">查看 GitHub Releases</string>
+    <string name="version_updates">版本更新</string>
+    <string name="update_available">发现新版本</string>
+    <string name="up_to_date">已是最新版本</string>
+    <string name="check_now">立即检查更新</string>
+    <string name="update_settings">更新设置</string>
+    <string name="ignore_this_version">忽略此版本</string>
+    <string name="later">稍后</string>
+    <string name="view_update">查看更新</string>
 </resources>

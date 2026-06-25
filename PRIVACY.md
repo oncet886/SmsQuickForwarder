@@ -12,7 +12,7 @@ The app does not collect, upload, sell, or share:
 - debug logs
 - device information
 
-The app does not request the `INTERNET` permission and cannot connect to any server.
+The app requests `INTERNET` only to read public GitHub Releases metadata for new-version checks. It does not upload SMS, phone numbers, rules, logs, target numbers, or device identifiers.
 
 ## Local Data
 
@@ -22,6 +22,16 @@ The following data is stored only on the device:
 - forwarding enabled/paused state
 - local matching rules
 - recent debug and forwarding logs
+- update-check preferences, ignored version, and last-check status
+
+## Network Access
+
+Network requests are limited to:
+
+- `https://api.github.com/repos/oncet886/SmsQuickForwarder/releases/latest`
+- GitHub Release pages opened by the user
+
+The app does not use a GitHub token, analytics SDK, advertising SDK, or any custom update server.
 
 ## Debug Export
 

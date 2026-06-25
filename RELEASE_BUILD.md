@@ -64,7 +64,7 @@ BC:29:EC:4B:7D:30:CC:1B:48:33:0E:C7:07:CC:E8:0D:57:C2:52:31:3F:F1:9C:A4:B7:CE:00
 
 ## 6. Maintainer release workflow
 
-Feature, UI, rule, permission, Manifest, resource, or runtime changes should be released with:
+Feature, UI, rule, permission, Manifest, resource, update-check, or runtime changes should be released with:
 
 ```bash
 ./scripts/release.sh 0.1.7 8 "SmsQuickForwarder v0.1.7" "Describe the user-facing change."

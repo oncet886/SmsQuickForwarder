@@ -1,8 +1,8 @@
 # SMS Quick Forwarder
 
-SmsQuickForwarder is a lightweight, open-source Android app for forwarding ordinary SMS messages without network access. It can forward matching SMS messages to a user-configured phone number based on sender or message-body rules.
+SmsQuickForwarder is a lightweight, open-source Android app for forwarding ordinary SMS messages. It can forward matching SMS messages to a user-configured phone number based on sender or message-body rules, and it uses network access only to check GitHub Releases for new versions.
 
-短信快转发是一个轻量、开源、无网络权限的 Android 普通短信自动转发工具。它可以按照发送号码或短信正文规则，将符合条件的 SMS 转发到指定号码。
+短信快转发是一个轻量、开源的 Android 普通短信自动转发工具。它可以按照发送号码或短信正文规则，将符合条件的 SMS 转发到指定号码，网络权限仅用于检查 GitHub Releases 新版本。
 
 ## Features
 
@@ -18,7 +18,8 @@ SmsQuickForwarder is a lightweight, open-source Android app for forwarding ordin
 - Foreground service and boot restore when forwarding was enabled.
 - Debug logs and privacy-safe Debug JSON export.
 - Phone numbers and message content are masked by default in diagnostics.
-- No ads, no analytics SDK, and no `INTERNET` permission.
+- Automatic new-version checks through public GitHub Releases.
+- No ads and no analytics SDK.
 
 ## 功能
 
@@ -34,7 +35,8 @@ SmsQuickForwarder is a lightweight, open-source Android app for forwarding ordin
 - 前台服务和开机恢复。
 - 调试日志和隐私安全的 Debug JSON 导出。
 - 诊断信息默认遮罩手机号和短信内容。
-- 无广告、无统计 SDK、无 `INTERNET` 权限。
+- 通过公开 GitHub Releases 自动提醒新版本。
+- 无广告、无统计 SDK。
 
 ## SMS And RCS
 
@@ -54,10 +56,10 @@ Actual permissions declared by the app:
 | `FOREGROUND_SERVICE` | Keep the forwarding service visible and running. |
 | `FOREGROUND_SERVICE_DATA_SYNC` | Foreground service type on recent Android versions. |
 | `POST_NOTIFICATIONS` | Show the required foreground-service notification on Android 13+. |
+| `INTERNET` | Check public GitHub Releases for new versions. |
 
 The app does not request:
 
-- `INTERNET`
 - contacts permissions
 - location permissions
 - call-log permissions
@@ -68,7 +70,7 @@ The app does not request:
 
 - No SMS content is uploaded.
 - No phone numbers, rules, logs, or device data are sent to any server.
-- The app has no network permission.
+- Network access is used only to read public GitHub Release metadata for update checks.
 - Target number, rules, and logs are stored only on the device.
 - Debug JSON leaves the app only when the user explicitly shares or copies it.
 - Debug exports mask phone numbers and message previews by default.
@@ -197,13 +199,13 @@ MIT. See [LICENSE](LICENSE).
 
 ## 项目简介
 
-短信快转发是一个轻量、开源、无网络权限的 Android 普通短信自动转发工具。它可以按照发送号码或短信正文规则，将符合条件的 SMS 转发到指定号码。
+短信快转发是一个轻量、开源的 Android 普通短信自动转发工具。它可以按照发送号码或短信正文规则，将符合条件的 SMS 转发到指定号码。网络权限仅用于读取公开 GitHub Releases 以检查新版本。
 
 ## 使用提醒
 
 - 不支持 RCS。
 - 不上传短信。
-- 不连接任何服务器。
+- 只连接 GitHub Releases 检查新版本。
 - 不包含广告和统计 SDK。
 - 数据仅保存于本机。
 - 自动转发短信可能产生运营商短信费用。
