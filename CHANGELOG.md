@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.1.8] - 2026-06-25
+
+### Changed
+- Add automatic GitHub release checks, in-app update prompts, background notifications, update frequency settings, and ignored-version support.
+
+
 ## [0.1.7] - 2026-06-25
 
 ### Changed
