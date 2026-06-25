@@ -3,4 +3,7 @@ build/
 app/build/
 keystore/keystore.properties
 keystore/*.jks
+keystore/*.keystore
+*.jks
+*.keystore
 *.apk

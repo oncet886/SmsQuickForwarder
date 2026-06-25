@@ -49,7 +49,7 @@ android {
     signingConfigs {
         release {
             if (releaseKeystorePropsFile.exists()) {
-                storeFile rootProject.file(releaseKeystoreProps["storeFile"] ?: "")
+                storeFile rootProject.file("keystore/" + (releaseKeystoreProps["storeFile"] ?: ""))
                 storePassword releaseKeystoreProps["storePassword"]
                 keyAlias releaseKeystoreProps["keyAlias"]
                 keyPassword releaseKeystoreProps["keyPassword"]
@@ -65,9 +65,7 @@ android {
             debuggable false
             minifyEnabled false
             shrinkResources false
-            if (releaseKeystorePropsFile.exists()) {
-                signingConfig signingConfigs.release
-            }
+            signingConfig signingConfigs.release
         }
     }
 
@@ -99,6 +97,13 @@ afterEvaluate {
         doFirst {
             if (!releaseKeystorePropsFile.exists()) {
                 throw new GradleException("Release keystore config missing: keystore/keystore.properties. See RELEASE_BUILD.md.")
+            }
+            def releaseStoreFile = releaseKeystoreProps["storeFile"]
+            if (releaseStoreFile == null || releaseStoreFile.toString().trim().isEmpty()) {
+                throw new GradleException("Release keystore config missing storeFile in keystore/keystore.properties.")
+            }
+            if (!rootProject.file("keystore/" + releaseStoreFile).exists()) {
+                throw new GradleException("Release keystore file missing: keystore/${releaseStoreFile}.")
             }
         }
     }
