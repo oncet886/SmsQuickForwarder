@@ -12,4 +12,26 @@
     <string name="forwarding_paused">短信转发已暂停</string>
     <string name="ready_to_forward">可以正常转发</string>
     <string name="setup_required">需要完成设置</string>
+    <string name="rule_settings">规则设置</string>
+    <string name="forward_mode">转发模式</string>
+    <string name="forward_all_sms">转发全部短信</string>
+    <string name="forward_matched_sms_only">仅转发符合规则的短信</string>
+    <string name="include_rule">包含规则</string>
+    <string name="exclude_rule">排除规则</string>
+    <string name="match_sender">匹配号码</string>
+    <string name="match_body">匹配正文</string>
+    <string name="contains">包含</string>
+    <string name="equals">完全相同</string>
+    <string name="starts_with">以此开头</string>
+    <string name="regex">正则表达式</string>
+    <string name="test_rules">测试规则</string>
+    <string name="will_forward">将转发</string>
+    <string name="will_skip">将跳过</string>
+    <string name="matched_rules">命中的规则</string>
+    <string name="no_matched_rules">没有匹配规则</string>
+    <string name="new_rule">新建规则</string>
+    <string name="edit_rule">编辑规则</string>
+    <string name="delete_rule">删除规则</string>
+    <string name="rule_saved">规则已保存</string>
+    <string name="invalid_regex">正则表达式无效</string>
 </resources>

@@ -12,6 +12,8 @@ import com.oncet.smsquickforwarder.data.ForwardLogStore
 import com.oncet.smsquickforwarder.data.SettingsStore
 import com.oncet.smsquickforwarder.receiver.RetryReceiver
 import com.oncet.smsquickforwarder.receiver.SmsSentReceiver
+import com.oncet.smsquickforwarder.rules.RuleEngine
+import com.oncet.smsquickforwarder.rules.RuleStore
 import com.oncet.smsquickforwarder.util.PhoneNumberUtil
 import org.json.JSONArray
 import java.text.SimpleDateFormat
@@ -93,6 +95,17 @@ object SmsForwarder {
             ForwardLogStore.updateDecision(context, eventId, "skipped_forward_marker", "内容包含 $MARKER，避免循环", targetPhone = target)
             return
         }
+        val started = System.currentTimeMillis()
+        val evaluation = RuleEngine.evaluate(
+            sender = sender,
+            body = body,
+            targetPhone = target,
+            mode = RuleStore.forwardMode(context),
+            rules = RuleStore.rules(context),
+            applyLoopGuard = false
+        )
+        ForwardLogStore.updateRuleEvaluation(context, eventId, evaluation, System.currentTimeMillis() - started)
+        if (!evaluation.shouldForward) return
         if (context.checkSelfPermission(Manifest.permission.SEND_SMS) != PackageManager.PERMISSION_GRANTED) {
             ForwardLogStore.updateDecision(context, eventId, "failed_no_permission", "缺少 SEND_SMS 权限", targetPhone = target)
             return

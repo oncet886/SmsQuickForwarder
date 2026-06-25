@@ -10,6 +10,7 @@ import android.telephony.SubscriptionManager
 import com.oncet.smsquickforwarder.BuildConfig
 import com.oncet.smsquickforwarder.data.ForwardLogStore
 import com.oncet.smsquickforwarder.data.SettingsStore
+import com.oncet.smsquickforwarder.rules.RuleStore
 import com.oncet.smsquickforwarder.util.PhoneMaskUtils
 import org.json.JSONArray
 import org.json.JSONObject
@@ -30,6 +31,7 @@ object DebugInfoBuilder {
             root.put("batteryOptimization", batteryOptimization(context))
             root.put("permissionGuidance", permissionGuidance(context))
             root.put("stabilitySelfCheck", stabilitySelfCheck(context))
+            root.put("rules", RuleStore.summaryJson(context, includeSensitivePatterns = includeFullPhone))
             root.put("recentEvents", ForwardLogStore.recentEvents(context, 20, includeFullBody, includeFullPhone))
         }.onFailure { e ->
             errors.put("${e.javaClass.simpleName}: ${e.message}")
@@ -51,6 +53,8 @@ object DebugInfoBuilder {
             append(formatObject(json.optJSONObject("systemInfo"))).append("\n\n")
             append("稳定性自检\n")
             append(formatObject(json.optJSONObject("stabilitySelfCheck"))).append("\n\n")
+            append("规则设置\n")
+            append(formatObject(json.optJSONObject("rules"))).append("\n\n")
             append("SIM 信息\n")
             append(formatObject(json.optJSONObject("simInfo"))).append("\n\n")
             append("电池优化\n")
@@ -65,7 +69,7 @@ object DebugInfoBuilder {
     fun diagnosticSummary(context: Context): String {
         val target = PhoneMaskUtils.mask(SettingsStore.targetPhone(context))
         val lastSms = ForwardLogStore.findLatestTime(context) { it.optString("eventType") == "sms_received" }
-        val lastForward = ForwardLogStore.findLatestTime(context) { it.optString("decision") == "forwarded" }
+        val lastForward = ForwardLogStore.findLatestTime(context) { isForwardSuccess(it.optString("decision")) }
         val lastError = ForwardLogStore.latestFailureReason(context)
         return buildString {
             append("SMS Quick Forwarder ${BuildConfig.VERSION_NAME}+${BuildConfig.VERSION_CODE}\n")
@@ -187,10 +191,10 @@ object DebugInfoBuilder {
         val forwardingEnabled = SettingsStore.isEnabled(context)
         val batteryOk = isBatteryUnrestricted(context)
         val lastFailureAt = ForwardLogStore.findLatestTime(context) { it.optString("decision").contains("failed", ignoreCase = true) }
-        val lastForwardSuccessAt = ForwardLogStore.findLatestTime(context) { it.optString("decision") == "forwarded" }
+        val lastForwardSuccessAt = ForwardLogStore.findLatestTime(context) { isForwardSuccess(it.optString("decision")) }
         val lastRealSmsReceivedAt = ForwardLogStore.findLatestTime(context) { it.optString("eventType") == "sms_received" }
         val lastRealSmsForwardedAt = ForwardLogStore.findLatestTime(context) {
-            it.optString("eventType") == "sms_received" && it.optString("decision") == "forwarded"
+            it.optString("eventType") == "sms_received" && isForwardSuccess(it.optString("decision"))
         }
         val failuresAfterLastSuccess = lastFailureAt.isNotBlank() && (lastForwardSuccessAt.isBlank() || lastFailureAt > lastForwardSuccessAt)
         val hardFail = !receiveSms || !sendSms || !targetSet
@@ -262,6 +266,9 @@ object DebugInfoBuilder {
         val pm = context.getSystemService(PowerManager::class.java)
         return pm.isIgnoringBatteryOptimizations(context.packageName)
     }
+
+    private fun isForwardSuccess(decision: String): Boolean =
+        decision == "forwarded" || decision == "forwarded_rule_match" || decision == "forwarded_all_mode"
 
     private fun formatObject(obj: JSONObject?): String {
         if (obj == null) return ""

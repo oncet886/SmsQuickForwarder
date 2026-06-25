@@ -12,4 +12,26 @@
     <string name="forwarding_paused">簡訊轉發已暫停</string>
     <string name="ready_to_forward">可以正常轉發</string>
     <string name="setup_required">需要完成設定</string>
+    <string name="rule_settings">規則設定</string>
+    <string name="forward_mode">轉發模式</string>
+    <string name="forward_all_sms">轉發全部簡訊</string>
+    <string name="forward_matched_sms_only">僅轉發符合規則的簡訊</string>
+    <string name="include_rule">包含規則</string>
+    <string name="exclude_rule">排除規則</string>
+    <string name="match_sender">比對號碼</string>
+    <string name="match_body">比對正文</string>
+    <string name="contains">包含</string>
+    <string name="equals">完全相同</string>
+    <string name="starts_with">以此開頭</string>
+    <string name="regex">正則表達式</string>
+    <string name="test_rules">測試規則</string>
+    <string name="will_forward">將轉發</string>
+    <string name="will_skip">將跳過</string>
+    <string name="matched_rules">命中的規則</string>
+    <string name="no_matched_rules">沒有匹配規則</string>
+    <string name="new_rule">新增規則</string>
+    <string name="edit_rule">編輯規則</string>
+    <string name="delete_rule">刪除規則</string>
+    <string name="rule_saved">規則已儲存</string>
+    <string name="invalid_regex">正則表達式無效</string>
 </resources>

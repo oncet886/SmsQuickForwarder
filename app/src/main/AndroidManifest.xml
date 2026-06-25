@@ -29,6 +29,22 @@
             android:name=".DebugActivity"
             android:exported="false" />
 
+        <activity
+            android:name=".RulesActivity"
+            android:exported="false" />
+
+        <activity
+            android:name=".RuleEditActivity"
+            android:exported="false" />
+
+        <activity
+            android:name=".RuleTestActivity"
+            android:exported="false" />
+
+        <activity
+            android:name=".LogDetailActivity"
+            android:exported="false" />
+
         <receiver
             android:name=".receiver.SmsReceiver"
             android:enabled="true"

@@ -21,8 +21,10 @@ import android.widget.TextView
 import android.widget.Toast
 import com.oncet.smsquickforwarder.data.ForwardLogStore
 import com.oncet.smsquickforwarder.data.SettingsStore
+import com.oncet.smsquickforwarder.rules.RuleStore
 import com.oncet.smsquickforwarder.service.ForwardForegroundService
 import com.oncet.smsquickforwarder.sms.SmsForwarder
+import com.oncet.smsquickforwarder.util.PhoneMaskUtils
 
 class MainActivity : Activity() {
     private lateinit var enabledSwitch: Switch
@@ -30,7 +32,7 @@ class MainActivity : Activity() {
     private lateinit var statusText: TextView
     private lateinit var permissionText: TextView
     private lateinit var serviceText: TextView
-    private lateinit var logsText: TextView
+    private lateinit var recentRoot: LinearLayout
     private lateinit var sendSmsButton: Button
     private var refreshing = false
 
@@ -59,7 +61,10 @@ class MainActivity : Activity() {
             setPadding(0, 18, 0, 18)
         })
 
-        statusText = TextView(this).apply { textSize = 16f }
+        statusText = TextView(this).apply {
+            textSize = 16f
+            setPadding(0, 8, 0, 14)
+        }
         root.addView(statusText)
 
         targetInput = EditText(this).apply {
@@ -77,7 +82,7 @@ class MainActivity : Activity() {
         })
 
         enabledSwitch = Switch(this).apply {
-            text = "启用短信转发 / 暂停短信转发"
+            text = "启用短信转发"
             setOnCheckedChangeListener { _, checked ->
                 if (refreshing) return@setOnCheckedChangeListener
                 if (checked && !canEnableForwarding()) {
@@ -99,6 +104,36 @@ class MainActivity : Activity() {
             }
         }
         root.addView(enabledSwitch)
+        root.addView(TextView(this).apply {
+            text = "关闭后仍会保留设置和日志，但不会转发新短信。"
+            textSize = 13f
+            setPadding(0, 0, 0, 14)
+        })
+
+        root.addView(TextView(this).apply {
+            text = "快捷操作"
+            textSize = 16f
+            setPadding(0, 12, 0, 4)
+        })
+        root.addView(Button(this).apply {
+            text = getString(R.string.rule_settings)
+            setOnClickListener { startActivity(Intent(this@MainActivity, RulesActivity::class.java)) }
+        })
+        root.addView(Button(this).apply {
+            text = getString(R.string.test_rules)
+            setOnClickListener { startActivity(Intent(this@MainActivity, RuleTestActivity::class.java)) }
+        })
+        root.addView(Button(this).apply {
+            text = "测试发送"
+            setOnClickListener {
+                SmsForwarder.sendTestMessage(this@MainActivity)
+                refresh()
+            }
+        })
+        root.addView(Button(this).apply {
+            text = getString(R.string.debug_info)
+            setOnClickListener { startActivity(Intent(this@MainActivity, DebugActivity::class.java)) }
+        })
 
         val permissionHeader = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
@@ -154,36 +189,17 @@ class MainActivity : Activity() {
         })
 
         root.addView(Button(this).apply {
-            text = "测试发送"
-            setOnClickListener {
-                SmsForwarder.sendTestMessage(this@MainActivity)
-                refresh()
-            }
-        })
-
-        root.addView(Button(this).apply {
-            text = "调试信息"
-            setOnClickListener { startActivity(Intent(this@MainActivity, DebugActivity::class.java)) }
-        })
-
-        root.addView(Button(this).apply {
             text = "刷新日志"
             setOnClickListener { refresh() }
         })
 
-        root.addView(Button(this).apply {
-            text = "清空日志"
-            setOnClickListener {
-                ForwardLogStore.clear(this@MainActivity)
-                refresh()
-            }
-        })
-
-        logsText = TextView(this).apply {
-            textSize = 13f
+        root.addView(TextView(this).apply {
+            text = "最近记录"
+            textSize = 16f
             setPadding(0, 20, 0, 0)
-        }
-        root.addView(logsText)
+        })
+        recentRoot = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+        root.addView(recentRoot)
 
         setContentView(ScrollView(this).apply { addView(root) })
     }
@@ -192,14 +208,73 @@ class MainActivity : Activity() {
         setSwitchWithoutCallback(SettingsStore.isEnabled(this))
         targetInput.setText(SettingsStore.targetPhone(this))
 
-        val enabled = SettingsStore.isEnabled(this)
-        val targetSet = SettingsStore.targetPhone(this).isNotBlank()
-        statusText.text = "当前状态：${if (enabled) "正在转发" else "已暂停"}\n目标手机号：${if (targetSet) "已设置" else "未设置"}"
+        val target = SettingsStore.targetPhone(this)
+        val targetSet = target.isNotBlank()
+        val appState = currentStateText()
+        val lastSuccess = ForwardLogStore.findLatestTime(this) { isForwardSuccess(it.optString("decision")) }.ifBlank { "暂无" }
+        val todaySuccess = ForwardLogStore.countToday(this) { isForwardSuccess(it.optString("decision")) }
+        val todayFailed = ForwardLogStore.countToday(this) { it.optString("decision").contains("failed", ignoreCase = true) }
+        statusText.text = buildString {
+            append(appState).append("\n")
+            if (SettingsStore.isEnabled(this@MainActivity) && targetSet) {
+                append("收到符合规则的短信后，将自动转发到 ").append(PhoneMaskUtils.mask(target)).append("\n")
+            } else if (!SettingsStore.isEnabled(this@MainActivity)) {
+                append("短信转发已暂停\n")
+            }
+            append("转发目标：").append(if (targetSet) PhoneMaskUtils.mask(target) else "未设置").append("\n")
+            append("最近一次成功转发：").append(lastSuccess).append("\n")
+            append("今日成功 / 失败：").append(todaySuccess).append(" / ").append(todayFailed).append("\n")
+            append("转发模式：").append(RuleStore.forwardMode(this@MainActivity).name)
+        }
         permissionText.text = permissionCardText()
         sendSmsButton.visibility = if (hasSendSmsPermission()) View.GONE else View.VISIBLE
         serviceText.text = "前台服务：${if (SettingsStore.isServiceRunning(this)) "运行中" else "未运行"}\n通知权限：${notificationStatus()}\n电池优化：${batteryStatus()}"
-        logsText.text = "最近日志：\n${ForwardLogStore.listText(this)}"
+        renderRecentEvents()
     }
+
+    private fun renderRecentEvents() {
+        recentRoot.removeAllViews()
+        val events = ForwardLogStore.recentUserEvents(this, 5)
+        if (events.length() == 0) {
+            recentRoot.addView(TextView(this).apply { text = "暂无有效短信记录" })
+            return
+        }
+        for (i in 0 until events.length()) {
+            val obj = events.getJSONObject(i)
+            recentRoot.addView(TextView(this).apply {
+                textSize = 13f
+                setPadding(0, 10, 0, 10)
+                text = buildString {
+                    append(obj.optString("receivedAt")).append("  ").append(decisionLabel(obj.optString("decision"))).append("\n")
+                    append(PhoneMaskUtils.mask(obj.optString("sender"))).append("  ")
+                    append(obj.optString("bodyPreview")).append("\n")
+                    append("规则：").append(obj.optString("primaryMatchedRuleName").ifBlank { "无" })
+                }
+                setOnClickListener {
+                    startActivity(Intent(this@MainActivity, LogDetailActivity::class.java).apply {
+                        putExtra(LogDetailActivity.EXTRA_EVENT_ID, obj.optString("eventId"))
+                    })
+                }
+            })
+        }
+    }
+
+    private fun currentStateText(): String = when {
+        !hasReceiveSmsPermission() || !hasSendSmsPermission() -> "需要权限"
+        SettingsStore.targetPhone(this).isBlank() -> "配置不完整"
+        SettingsStore.isEnabled(this) -> "短信转发运行中"
+        else -> "短信转发已暂停"
+    }
+
+    private fun decisionLabel(decision: String): String = when {
+        isForwardSuccess(decision) -> "已转发"
+        decision.contains("failed", ignoreCase = true) -> "发送失败"
+        decision.startsWith("skipped") -> "已跳过"
+        else -> decision
+    }
+
+    private fun isForwardSuccess(decision: String): Boolean =
+        decision == "forwarded" || decision == "forwarded_rule_match" || decision == "forwarded_all_mode"
 
     private fun setSwitchWithoutCallback(value: Boolean) {
         refreshing = true

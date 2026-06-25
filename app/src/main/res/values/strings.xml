@@ -12,4 +12,26 @@
     <string name="forwarding_paused">Forwarding Paused</string>
     <string name="ready_to_forward">Ready to Forward</string>
     <string name="setup_required">Setup Required</string>
+    <string name="rule_settings">Rule Settings</string>
+    <string name="forward_mode">Forward Mode</string>
+    <string name="forward_all_sms">Forward all SMS</string>
+    <string name="forward_matched_sms_only">Forward matched SMS only</string>
+    <string name="include_rule">Include Rule</string>
+    <string name="exclude_rule">Exclude Rule</string>
+    <string name="match_sender">Match Sender</string>
+    <string name="match_body">Match Body</string>
+    <string name="contains">Contains</string>
+    <string name="equals">Equals</string>
+    <string name="starts_with">Starts With</string>
+    <string name="regex">Regex</string>
+    <string name="test_rules">Test Rules</string>
+    <string name="will_forward">Will Forward</string>
+    <string name="will_skip">Will Skip</string>
+    <string name="matched_rules">Matched Rules</string>
+    <string name="no_matched_rules">No matched rules</string>
+    <string name="new_rule">New Rule</string>
+    <string name="edit_rule">Edit Rule</string>
+    <string name="delete_rule">Delete Rule</string>
+    <string name="rule_saved">Rule saved</string>
+    <string name="invalid_regex">Invalid regex</string>
 </resources>

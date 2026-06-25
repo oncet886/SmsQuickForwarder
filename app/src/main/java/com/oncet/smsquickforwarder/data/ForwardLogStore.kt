@@ -1,6 +1,7 @@
 package com.oncet.smsquickforwarder.data
 
 import android.content.Context
+import com.oncet.smsquickforwarder.rules.RuleEvaluation
 import com.oncet.smsquickforwarder.util.MessagePrivacyUtils
 import com.oncet.smsquickforwarder.util.PhoneMaskUtils
 import org.json.JSONArray
@@ -124,6 +125,31 @@ object ForwardLogStore {
         }
     }
 
+    fun updateRuleEvaluation(
+        context: Context,
+        eventId: String?,
+        evaluation: RuleEvaluation,
+        durationMs: Long
+    ) {
+        if (eventId.isNullOrBlank()) return
+        mutate(context, eventId) { obj ->
+            obj.put("forwardMode", evaluation.mode.name)
+            obj.put("normalizedSender", evaluation.normalizedSender)
+            obj.put("matchedIncludeRuleIds", JSONArray().apply { evaluation.includeMatches.forEach { put(it.id) } })
+            obj.put("matchedExcludeRuleIds", JSONArray().apply { evaluation.excludeMatches.forEach { put(it.id) } })
+            obj.put("matchedRuleNames", JSONArray().apply { evaluation.matchedRuleNames.forEach { put(it) } })
+            obj.put("primaryMatchedRuleName", evaluation.primaryRule?.name.orEmpty())
+            obj.put("finalRuleReason", evaluation.reason)
+            obj.put("ruleEvaluationDurationMs", durationMs)
+            obj.put("pendingForwardDecision", evaluation.decision)
+            if (!evaluation.shouldForward) {
+                obj.put("decision", evaluation.decision)
+                obj.put("skipReason", evaluation.reason)
+            }
+            obj.put("updatedAt", now())
+        }
+    }
+
     fun markPartResult(
         context: Context,
         eventId: String?,
@@ -172,7 +198,7 @@ object ForwardLogStore {
                     obj.put("errorMessage", resultMessage)
                 }
                 successCount >= partCount -> {
-                    obj.put("decision", "forwarded")
+                    obj.put("decision", obj.optString("pendingForwardDecision").ifBlank { "forwarded" })
                     obj.put("sendResult", "sent")
                     obj.put("errorMessage", "")
                 }
@@ -209,6 +235,8 @@ object ForwardLogStore {
                 .append("\nFrom: ").append(PhoneMaskUtils.mask(obj.optString("sender")))
                 .append(" -> ").append(PhoneMaskUtils.mask(obj.optString("targetPhone")))
                 .append("\n").append(MessagePrivacyUtils.maskVerificationCodes(obj.optString("bodyPreview")))
+            val ruleName = obj.optString("primaryMatchedRuleName")
+            if (ruleName.isNotBlank()) sb.append("\nRule: ").append(ruleName)
             val reason = obj.optString("skipReason")
             val error = obj.optString("errorMessage")
             val result = obj.optString("sendResult")
@@ -221,6 +249,40 @@ object ForwardLogStore {
     }
 
     fun clear(context: Context) = saveArray(context, JSONArray())
+
+    fun eventById(context: Context, eventId: String): JSONObject? {
+        val arr = readArray(context)
+        for (i in 0 until arr.length()) {
+            val obj = arr.getJSONObject(i)
+            if (obj.optString("eventId") == eventId) return JSONObject(obj.toString())
+        }
+        return null
+    }
+
+    fun recentUserEvents(context: Context, limit: Int): JSONArray {
+        val arr = readArray(context)
+        val out = JSONArray()
+        for (i in 0 until arr.length()) {
+            val obj = arr.getJSONObject(i)
+            val type = obj.optString("eventType")
+            if (type == "receiver_entered" || type == "ignored_action" || type == "empty_pdu") continue
+            out.put(JSONObject(obj.toString()))
+            if (out.length() >= limit) break
+        }
+        return out
+    }
+
+    fun countToday(context: Context, predicate: (JSONObject) -> Boolean): Int {
+        val today = now().take(10)
+        val arr = readArray(context)
+        var count = 0
+        for (i in 0 until arr.length()) {
+            val obj = arr.getJSONObject(i)
+            val date = obj.optString("updatedAt").ifBlank { obj.optString("receivedAt") }.take(10)
+            if (date == today && predicate(obj)) count += 1
+        }
+        return count
+    }
 
     fun findLatestTime(context: Context, predicate: (JSONObject) -> Boolean): String {
         val arr = readArray(context)
@@ -305,6 +367,15 @@ object ForwardLogStore {
             put("sendResult", "")
             put("errorMessage", errorMessage)
             put("sendParts", JSONArray())
+            put("forwardMode", "")
+            put("normalizedSender", "")
+            put("matchedIncludeRuleIds", JSONArray())
+            put("matchedExcludeRuleIds", JSONArray())
+            put("matchedRuleNames", JSONArray())
+            put("primaryMatchedRuleName", "")
+            put("finalRuleReason", "")
+            put("ruleEvaluationDurationMs", 0)
+            put("pendingForwardDecision", "")
         }
     }
 
