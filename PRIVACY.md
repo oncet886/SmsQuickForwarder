@@ -23,6 +23,8 @@ The following data is stored only on the device:
 - local matching rules
 - recent debug and forwarding logs
 - update-check preferences, ignored version, and last-check status
+- onboarding completion state
+- backup/restore preferences such as log retention and failure notification setting
 
 ## Network Access
 
@@ -45,6 +47,26 @@ By default:
 - rule keywords are masked
 
 Users may explicitly enable additional diagnostic detail before sharing.
+
+## Configuration Backup
+
+Configuration backups are created only when the user explicitly exports them. By default, backups include settings and rules only.
+
+Backups do not include:
+
+- SMS bodies
+- debug logs or forwarding history
+- sender-number history
+- Debug JSON
+- keystore files
+- GitHub tokens
+- passwords
+
+## Health Checks And Logs
+
+Health checks and log search run locally on the device. Search terms are not saved and are not sent over the network.
+
+Forwarding failure notifications use masked details and do not show full message bodies.
 
 ## Carrier Charges
 

@@ -10,6 +10,8 @@ When reporting a bug, prefer:
 - screenshots with numbers and message content redacted
 - device model, Android version, app version, and permission state
 
+If you share a configuration backup for troubleshooting, review it first. Backups are intended to contain settings and rules only, but rule names and patterns may still reveal personal workflows.
+
 ## Signing Certificate
 
 Official Release APKs for this project should be signed with this certificate SHA-256:
@@ -30,3 +32,9 @@ Never upload or commit:
 - private keys
 
 The public `keystore/keystore.properties.example` file must contain placeholders only.
+
+## Update And Backup Safety
+
+The app checks only the public GitHub Releases endpoint for new versions. It does not accept arbitrary update servers and does not silently download or install APKs.
+
+Configuration backup and restore are local user-triggered actions. Do not attach backups containing real phone numbers or sensitive rule patterns to public issues without redaction.

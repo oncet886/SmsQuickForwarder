@@ -54,6 +54,18 @@
             android:name=".ChangelogActivity"
             android:exported="false" />
 
+        <activity
+            android:name=".onboarding.OnboardingActivity"
+            android:exported="false" />
+
+        <activity
+            android:name=".backup.BackupActivity"
+            android:exported="false" />
+
+        <activity
+            android:name=".health.HealthCheckActivity"
+            android:exported="false" />
+
         <receiver
             android:name=".receiver.SmsReceiver"
             android:enabled="true"

@@ -3,4 +3,7 @@
     <cache-path
         name="debug_exports"
         path="debug_exports/" />
+    <cache-path
+        name="backup_exports"
+        path="backup_exports/" />
 </paths>

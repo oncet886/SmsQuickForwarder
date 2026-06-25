@@ -2,6 +2,8 @@ package com.oncet.smsquickforwarder.data
 
 import android.content.Context
 import com.oncet.smsquickforwarder.rules.RuleEvaluation
+import com.oncet.smsquickforwarder.logs.LogRetentionDays
+import com.oncet.smsquickforwarder.logs.LogRetentionPolicy
 import com.oncet.smsquickforwarder.util.MessagePrivacyUtils
 import com.oncet.smsquickforwarder.util.PhoneMaskUtils
 import org.json.JSONArray
@@ -250,6 +252,59 @@ object ForwardLogStore {
 
     fun clear(context: Context) = saveArray(context, JSONArray())
 
+    fun totalCount(context: Context): Int = readArray(context).length()
+
+    fun estimatedBytes(context: Context): Int =
+        context.getSharedPreferences(PREF, Context.MODE_PRIVATE).getString(KEY_ITEMS, "[]")?.toByteArray(Charsets.UTF_8)?.size ?: 2
+
+    fun clearSuccessful(context: Context) {
+        val arr = readArray(context)
+        val out = JSONArray()
+        for (i in 0 until arr.length()) {
+            val obj = arr.getJSONObject(i)
+            if (!isForwardSuccess(obj.optString("decision"))) out.put(obj)
+        }
+        saveArray(context, out)
+    }
+
+    fun clearOlderThanDays(context: Context, days: Int) {
+        val cutoff = System.currentTimeMillis() - days * 24L * 60L * 60L * 1000L
+        val arr = readArray(context)
+        val out = JSONArray()
+        for (i in 0 until arr.length()) {
+            val obj = arr.getJSONObject(i)
+            if (parseTime(obj.optString("updatedAt").ifBlank { obj.optString("receivedAt") }) >= cutoff) out.put(obj)
+        }
+        saveArray(context, out)
+    }
+
+    fun pruneByRetention(context: Context, retention: LogRetentionDays) {
+        if (retention == LogRetentionDays.FOREVER) return
+        val now = System.currentTimeMillis()
+        val arr = readArray(context)
+        val out = JSONArray()
+        for (i in 0 until arr.length()) {
+            val obj = arr.getJSONObject(i)
+            val time = parseTime(obj.optString("updatedAt").ifBlank { obj.optString("receivedAt") })
+            if (LogRetentionPolicy.shouldKeep(time, now, retention)) out.put(obj)
+        }
+        saveArray(context, out)
+    }
+
+    fun searchUserEvents(context: Context, query: String, state: String, dateFilter: String, limit: Int = 200): JSONArray {
+        val normalizedQuery = query.trim().lowercase()
+        val arr = recentUserEvents(context, limit)
+        val out = JSONArray()
+        for (i in 0 until arr.length()) {
+            val obj = arr.getJSONObject(i)
+            if (!matchesState(obj, state)) continue
+            if (!matchesDate(obj, dateFilter)) continue
+            if (normalizedQuery.isNotBlank() && !matchesQuery(obj, normalizedQuery)) continue
+            out.put(obj)
+        }
+        return out
+    }
+
     fun eventById(context: Context, eventId: String): JSONObject? {
         val arr = readArray(context)
         for (i in 0 until arr.length()) {
@@ -302,6 +357,15 @@ object ForwardLogStore {
             }
         }
         return ""
+    }
+
+    fun latestFailureEvent(context: Context): JSONObject? {
+        val arr = readArray(context)
+        for (i in 0 until arr.length()) {
+            val obj = arr.getJSONObject(i)
+            if (obj.optString("decision").contains("failed", ignoreCase = true)) return JSONObject(obj.toString())
+        }
+        return null
     }
 
     private fun mutate(context: Context, eventId: String, block: (JSONObject) -> Unit) {
@@ -402,4 +466,43 @@ object ForwardLogStore {
     }
 
     private fun now(): String = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.US).format(Date())
+
+    private fun isForwardSuccess(decision: String): Boolean =
+        decision == "forwarded" || decision == "forwarded_rule_match" || decision == "forwarded_all_mode"
+
+    private fun matchesState(obj: JSONObject, state: String): Boolean {
+        val decision = obj.optString("decision")
+        return when (state) {
+            "forwarded" -> isForwardSuccess(decision)
+            "skipped" -> decision.startsWith("skipped")
+            "failed" -> decision.contains("failed", ignoreCase = true)
+            else -> true
+        }
+    }
+
+    private fun matchesDate(obj: JSONObject, dateFilter: String): Boolean {
+        if (dateFilter == "all") return true
+        val time = parseTime(obj.optString("updatedAt").ifBlank { obj.optString("receivedAt") })
+        val nowMs = System.currentTimeMillis()
+        val days = when (dateFilter) {
+            "today" -> 1
+            "7d" -> 7
+            "30d" -> 30
+            else -> return true
+        }
+        return time >= nowMs - days * 24L * 60L * 60L * 1000L
+    }
+
+    private fun matchesQuery(obj: JSONObject, query: String): Boolean =
+        listOf(
+            obj.optString("sender"),
+            obj.optString("normalizedSender"),
+            obj.optString("bodyPreview"),
+            obj.optString("primaryMatchedRuleName"),
+            obj.optString("errorMessage"),
+            obj.optString("skipReason")
+        ).any { it.lowercase().contains(query) }
+
+    private fun parseTime(value: String): Long =
+        runCatching { SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.US).parse(value)?.time ?: 0L }.getOrDefault(0L)
 }

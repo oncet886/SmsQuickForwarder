@@ -25,6 +25,14 @@ import android.widget.Toast
 import com.oncet.smsquickforwarder.data.ForwardLogStore
 import com.oncet.smsquickforwarder.data.SettingsStore
 import com.oncet.smsquickforwarder.debug.DebugInfoBuilder
+import com.oncet.smsquickforwarder.backup.BackupActivity
+import com.oncet.smsquickforwarder.failure.FailureNotificationPolicy
+import com.oncet.smsquickforwarder.health.HealthCheckActivity
+import com.oncet.smsquickforwarder.logs.LogRetentionDays
+import com.oncet.smsquickforwarder.onboarding.OnboardingActivity
+import com.oncet.smsquickforwarder.onboarding.OnboardingPreferences
+import com.oncet.smsquickforwarder.onboarding.OnboardingSnapshot
+import com.oncet.smsquickforwarder.onboarding.OnboardingState
 import com.oncet.smsquickforwarder.rules.ForwardMode
 import com.oncet.smsquickforwarder.rules.RuleStore
 import com.oncet.smsquickforwarder.rules.RuleType
@@ -54,7 +62,7 @@ class MainActivity : Activity() {
         super.onCreate(savedInstanceState)
         buildShell()
         render()
-        maybeShowFirstRunGuide()
+        maybeStartOnboarding()
         UpdateScheduler.configure(this)
         scheduleStartupUpdateCheck()
     }
@@ -108,6 +116,7 @@ class MainActivity : Activity() {
         contentRoot.addView(UiKit.subtitle(this, "只在你开启转发后处理本机收到的普通 SMS"))
         contentRoot.addView(statusCard())
         updatePromptCard()?.let { contentRoot.addView(it) }
+        failureWarningCard()?.let { contentRoot.addView(it) }
         contentRoot.addView(targetCard())
         contentRoot.addView(switchCard())
         contentRoot.addView(quickActionsCard())
@@ -248,6 +257,7 @@ class MainActivity : Activity() {
             Toast.makeText(this@MainActivity, if (canForwardNormally()) "权限状态已更新" else "仍有设置未完成", Toast.LENGTH_SHORT).show()
         })
         addView(actions)
+        addView(UiKit.secondaryButton(this@MainActivity, "运行健康检查") { startActivity(Intent(this@MainActivity, HealthCheckActivity::class.java)) })
     }
 
     private fun recentPreviewCard(limit: Int): LinearLayout = UiKit.card(this).apply {
@@ -339,23 +349,62 @@ class MainActivity : Activity() {
         })
         contentRoot.addView(updateStatusCard())
         contentRoot.addView(UiKit.card(this).apply {
-            addView(UiKit.body(this@MainActivity, "项目与更新"))
-            addView(UiKit.primaryButton(this@MainActivity, getString(R.string.changelog)) { startActivity(Intent(this@MainActivity, ChangelogActivity::class.java)) })
-            addView(UiKit.secondaryButton(this@MainActivity, getString(R.string.github_repository)) { openUrl("https://github.com/oncet886/SmsQuickForwarder") })
-            addView(UiKit.secondaryButton(this@MainActivity, getString(R.string.github_releases)) { openUrl("https://github.com/oncet886/SmsQuickForwarder/releases") })
+            addView(UiKit.body(this@MainActivity, "应用设置"))
+            addView(UiKit.primaryButton(this@MainActivity, "重新运行配置向导") {
+                OnboardingPreferences.setStep(this@MainActivity, 0)
+                startActivity(Intent(this@MainActivity, OnboardingActivity::class.java))
+            })
+            val failureSwitch = Switch(this@MainActivity).apply {
+                text = "转发失败通知"
+                isChecked = SettingsStore.failureNotificationsEnabled(this@MainActivity)
+                setOnCheckedChangeListener { _, checked -> SettingsStore.setFailureNotificationsEnabled(this@MainActivity, checked) }
+            }
+            addView(failureSwitch)
+            addView(UiKit.secondaryButton(this@MainActivity, "日志保留时间：${retentionLabel(LogRetentionDays.fromName(SettingsStore.logRetention(this@MainActivity)))}") { showLogRetentionDialog() })
         })
         contentRoot.addView(UiKit.card(this).apply {
-            addView(UiKit.body(this@MainActivity, "调试和支持"))
-            addView(UiKit.primaryButton(this@MainActivity, getString(R.string.debug_info)) { startActivity(Intent(this@MainActivity, DebugActivity::class.java)) })
+            addView(UiKit.body(this@MainActivity, "数据与备份"))
+            addView(UiKit.primaryButton(this@MainActivity, "备份与恢复") { startActivity(Intent(this@MainActivity, BackupActivity::class.java)) })
+        })
+        contentRoot.addView(UiKit.card(this).apply {
+            addView(UiKit.body(this@MainActivity, "运行与诊断"))
+            addView(UiKit.primaryButton(this@MainActivity, "运行健康检查") { startActivity(Intent(this@MainActivity, HealthCheckActivity::class.java)) })
+            addView(UiKit.secondaryButton(this@MainActivity, getString(R.string.debug_info)) { startActivity(Intent(this@MainActivity, DebugActivity::class.java)) })
             addView(UiKit.secondaryButton(this@MainActivity, getString(R.string.copy_diagnostic_summary)) {
                 getSystemService(ClipboardManager::class.java).setPrimaryClip(ClipData.newPlainText("diagnostics", DebugInfoBuilder.diagnosticSummary(this@MainActivity)))
                 Toast.makeText(this@MainActivity, "诊断摘要已复制", Toast.LENGTH_SHORT).show()
             })
         })
         contentRoot.addView(UiKit.card(this).apply {
-            addView(UiKit.body(this@MainActivity, "隐私与说明"))
-            addView(UiKit.subtitle(this@MainActivity, "网络权限仅用于访问 GitHub Releases 检查新版本，不上传短信、号码、规则或日志。调试 JSON 只有在你主动复制或分享时才会离开 App。自动发送短信可能产生运营商费用。"))
+            addView(UiKit.body(this@MainActivity, "版本与开源"))
+            addView(UiKit.primaryButton(this@MainActivity, getString(R.string.changelog)) { startActivity(Intent(this@MainActivity, ChangelogActivity::class.java)) })
+            addView(UiKit.secondaryButton(this@MainActivity, getString(R.string.github_repository)) { openUrl("https://github.com/oncet886/SmsQuickForwarder") })
+            addView(UiKit.secondaryButton(this@MainActivity, getString(R.string.github_releases)) { openUrl("https://github.com/oncet886/SmsQuickForwarder/releases") })
         })
+        contentRoot.addView(UiKit.card(this).apply {
+            addView(UiKit.body(this@MainActivity, "隐私与说明"))
+            addView(UiKit.subtitle(this@MainActivity, "网络权限仅用于访问 GitHub Releases 检查新版本。配置备份、健康检查、日志搜索都只在本机执行；失败通知默认脱敏，不上传短信、号码、规则或日志。"))
+        })
+    }
+
+    private fun failureWarningCard(): LinearLayout? {
+        val failureAt = ForwardLogStore.findLatestTime(this) { it.optString("decision").contains("failed", ignoreCase = true) }
+        val successAt = ForwardLogStore.findLatestTime(this) { isForwardSuccess(it.optString("decision")) }
+        if (!FailureNotificationPolicy.hasActiveFailure(failureAt, successAt)) return null
+        val event = ForwardLogStore.latestFailureEvent(this)
+        return UiKit.card(this).apply {
+            addView(UiKit.body(this@MainActivity, "最近一次转发失败"))
+            addView(UiKit.subtitle(this@MainActivity, "原因：${ForwardLogStore.latestFailureReason(this@MainActivity).ifBlank { "未知失败" }}\n时间：$failureAt"))
+            val row = UiKit.row(this@MainActivity)
+            row.addView(gridButton("查看详情") {
+                event?.optString("eventId")?.takeIf { it.isNotBlank() }?.let {
+                    startActivity(Intent(this@MainActivity, LogDetailActivity::class.java).putExtra(LogDetailActivity.EXTRA_EVENT_ID, it))
+                }
+            })
+            row.addView(gridButton("重新检查") { render() })
+            row.addView(gridButton("去修复") { startActivity(Intent(this@MainActivity, HealthCheckActivity::class.java)) })
+            addView(row)
+        }
     }
 
     private fun updateStatusCard(): LinearLayout = UiKit.card(this).apply {
@@ -405,6 +454,25 @@ class MainActivity : Activity() {
 
     private fun modeLabel(mode: ForwardMode): String =
         if (mode == ForwardMode.ALL) getString(R.string.forward_all_sms) else getString(R.string.forward_matched_sms_only)
+
+    private fun maybeStartOnboarding() {
+        val snapshot = OnboardingSnapshot(
+            completed = OnboardingPreferences.completed(this),
+            hasTarget = SettingsStore.targetPhone(this).isNotBlank(),
+            hasExistingLogs = ForwardLogStore.totalCount(this) > 0,
+            hasExistingRules = RuleStore.rules(this).isNotEmpty(),
+            legacyGuideShown = SettingsStore.isSetupGuideShown(this)
+        )
+        if (!snapshot.completed && !OnboardingState.shouldShow(snapshot)) {
+            OnboardingPreferences.markUpgradeCompleted(this)
+            return
+        }
+        if (OnboardingState.shouldShow(snapshot)) {
+            startActivity(Intent(this, OnboardingActivity::class.java))
+            return
+        }
+        maybeShowFirstRunGuide()
+    }
 
     private fun maybeShowFirstRunGuide() {
         if (SettingsStore.isSetupGuideShown(this)) return
@@ -600,6 +668,26 @@ class MainActivity : Activity() {
 
     private fun formatCheckTime(timestamp: Long): String =
         if (timestamp <= 0L) "尚未检查" else java.text.SimpleDateFormat("yyyy-MM-dd HH:mm", java.util.Locale.US).format(java.util.Date(timestamp))
+
+    private fun showLogRetentionDialog() {
+        val labels = LogRetentionDays.values().map { retentionLabel(it) }.toTypedArray()
+        AlertDialog.Builder(this)
+            .setTitle("日志保留时间")
+            .setItems(labels) { _, which ->
+                val selected = LogRetentionDays.values()[which]
+                SettingsStore.setLogRetention(this, selected.name)
+                if (selected != LogRetentionDays.FOREVER) ForwardLogStore.pruneByRetention(this, selected)
+                render()
+            }
+            .show()
+    }
+
+    private fun retentionLabel(value: LogRetentionDays): String = when (value) {
+        LogRetentionDays.DAYS_7 -> "7 天"
+        LogRetentionDays.DAYS_30 -> "30 天"
+        LogRetentionDays.DAYS_90 -> "90 天"
+        LogRetentionDays.FOREVER -> "永久保留"
+    }
 
     private fun canEnableForwarding(): Boolean =
         SettingsStore.targetPhone(this).isNotBlank() && hasReceiveSmsPermission() && hasSendSmsPermission()

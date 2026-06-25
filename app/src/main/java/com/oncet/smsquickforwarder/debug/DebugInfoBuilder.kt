@@ -10,7 +10,9 @@ import android.telephony.SubscriptionManager
 import com.oncet.smsquickforwarder.BuildConfig
 import com.oncet.smsquickforwarder.data.ForwardLogStore
 import com.oncet.smsquickforwarder.data.SettingsStore
+import com.oncet.smsquickforwarder.onboarding.OnboardingPreferences
 import com.oncet.smsquickforwarder.rules.RuleStore
+import com.oncet.smsquickforwarder.update.UpdatePreferences
 import com.oncet.smsquickforwarder.util.PhoneMaskUtils
 import org.json.JSONArray
 import org.json.JSONObject
@@ -93,6 +95,10 @@ object DebugInfoBuilder {
         put("targetPhoneSet", SettingsStore.targetPhone(context).isNotBlank())
         put("loopGuardEnabled", true)
         put("foregroundServiceRunning", SettingsStore.isServiceRunning(context))
+        put("onboardingCompleted", OnboardingPreferences.completed(context))
+        put("failureNotificationsEnabled", SettingsStore.failureNotificationsEnabled(context))
+        put("logRetention", SettingsStore.logRetention(context))
+        put("autoUpdateCheckEnabled", UpdatePreferences.autoCheckEnabled(context))
     }
 
     private fun permissions(context: Context) = JSONObject().apply {

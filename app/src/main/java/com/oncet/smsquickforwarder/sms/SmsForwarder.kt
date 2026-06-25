@@ -10,6 +10,7 @@ import android.os.Build
 import android.telephony.SmsManager
 import com.oncet.smsquickforwarder.data.ForwardLogStore
 import com.oncet.smsquickforwarder.data.SettingsStore
+import com.oncet.smsquickforwarder.failure.FailureNotifier
 import com.oncet.smsquickforwarder.receiver.RetryReceiver
 import com.oncet.smsquickforwarder.receiver.SmsSentReceiver
 import com.oncet.smsquickforwarder.rules.RuleEngine
@@ -60,6 +61,7 @@ object SmsForwarder {
         }
         if (context.checkSelfPermission(Manifest.permission.SEND_SMS) != PackageManager.PERMISSION_GRANTED) {
             ForwardLogStore.updateDecision(context, eventId, "failed_no_permission", "缺少 SEND_SMS 权限", targetPhone = target)
+            FailureNotifier.notifyIfNeeded(context, eventId)
             return eventId
         }
         sendRaw(context, eventId, target, body, sender = "APP_TEST", originalBody = body, retryCount = 0, allowRetry = false)
@@ -108,6 +110,7 @@ object SmsForwarder {
         if (!evaluation.shouldForward) return
         if (context.checkSelfPermission(Manifest.permission.SEND_SMS) != PackageManager.PERMISSION_GRANTED) {
             ForwardLogStore.updateDecision(context, eventId, "failed_no_permission", "缺少 SEND_SMS 权限", targetPhone = target)
+            FailureNotifier.notifyIfNeeded(context, eventId)
             return
         }
         send(context, eventId, sender, body, target, retryCount)
@@ -169,6 +172,7 @@ object SmsForwarder {
         } catch (e: Exception) {
             val message = e.message ?: e.javaClass.simpleName
             ForwardLogStore.updateDecision(context, eventId, "failed_send_exception", sendResult = "exception", errorMessage = message)
+            FailureNotifier.notifyIfNeeded(context, eventId)
             if (allowRetry) scheduleRetry(context, eventId, sender, originalBody, retryCount)
         }
     }
@@ -183,6 +187,7 @@ object SmsForwarder {
                 errorMessage = "已重试 2 次，仍然失败",
                 retryCount = retryCount
             )
+            FailureNotifier.notifyIfNeeded(context, eventId)
             return
         }
         val nextRetry = retryCount + 1

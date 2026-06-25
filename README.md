@@ -19,6 +19,11 @@ SmsQuickForwarder is a lightweight, open-source Android app for forwarding ordin
 - Debug logs and privacy-safe Debug JSON export.
 - Phone numbers and message content are masked by default in diagnostics.
 - Automatic new-version checks through public GitHub Releases.
+- First-run setup guide for target number, permissions, background behavior, and test sending.
+- Local configuration backup and restore for settings and rules.
+- Local health checks for forwarding readiness and common failure causes.
+- Forwarding failure notifications with masked details.
+- Local log search, filtering, statistics, and retention controls.
 - No ads and no analytics SDK.
 
 ## 功能
@@ -36,6 +41,11 @@ SmsQuickForwarder is a lightweight, open-source Android app for forwarding ordin
 - 调试日志和隐私安全的 Debug JSON 导出。
 - 诊断信息默认遮罩手机号和短信内容。
 - 通过公开 GitHub Releases 自动提醒新版本。
+- 首次使用配置向导，覆盖目标号码、权限、后台运行和测试发送。
+- 本地配置备份与恢复，备份设置和规则。
+- 本地运行健康检查，帮助定位常见转发问题。
+- 转发失败通知，默认脱敏显示。
+- 本地日志搜索、筛选、统计和保留时间控制。
 - 无广告、无统计 SDK。
 
 ## SMS And RCS
@@ -71,9 +81,14 @@ The app does not request:
 - No SMS content is uploaded.
 - No phone numbers, rules, logs, or device data are sent to any server.
 - Network access is used only to read public GitHub Release metadata for update checks.
+- Configuration backups are generated only when the user explicitly exports them.
+- Backups do not include logs, SMS bodies, sender history, Debug JSON, keystores, tokens, or passwords.
+- Health checks and log search run locally on the device.
+- Forwarding failure notifications mask sensitive details by default.
 - Target number, rules, and logs are stored only on the device.
 - Debug JSON leaves the app only when the user explicitly shares or copies it.
 - Debug exports mask phone numbers and message previews by default.
+- Backup exports contain settings and rules only; they do not include SMS history.
 
 See [PRIVACY.md](PRIVACY.md) for details.
 
@@ -183,6 +198,7 @@ Screenshots will be added under [screenshots/](screenshots/) in a future update.
 - Background reliability depends on the device vendor and battery settings.
 - Dual-SIM details may require additional user-granted phone-state permission, which this app does not request by default.
 - Some carriers may charge for forwarded SMS.
+- The app does not automatically install updates; update notifications open GitHub Releases.
 - This app is intended for devices you own or are authorized to manage.
 
 ## Safety And Legal Notice
@@ -206,6 +222,9 @@ MIT. See [LICENSE](LICENSE).
 - 不支持 RCS。
 - 不上传短信。
 - 只连接 GitHub Releases 检查新版本。
+- 配置备份仅由用户主动导出，默认不包含日志、短信正文或历史号码。
+- 健康检查和日志搜索仅在本机执行。
+- 转发失败通知默认脱敏。
 - 不包含广告和统计 SDK。
 - 数据仅保存于本机。
 - 自动转发短信可能产生运营商短信费用。

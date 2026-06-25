@@ -6,6 +6,7 @@ import android.content.Context
 import android.content.Intent
 import android.telephony.SmsManager
 import com.oncet.smsquickforwarder.data.ForwardLogStore
+import com.oncet.smsquickforwarder.failure.FailureNotifier
 import com.oncet.smsquickforwarder.sms.SmsForwarder
 
 class SmsSentReceiver : BroadcastReceiver() {
@@ -32,6 +33,7 @@ class SmsSentReceiver : BroadcastReceiver() {
         )
 
         if (!success && allowRetry && !eventId.isNullOrBlank()) {
+            FailureNotifier.notifyIfNeeded(context, eventId)
             SmsForwarder.scheduleRetry(context, eventId, sender, body, retryCount)
         }
     }
