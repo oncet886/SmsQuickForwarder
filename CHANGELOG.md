@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.1.9] - 2026-06-25
+
+### Changed
+- Add first-run onboarding, local configuration backup and restore, health checks, forwarding failure alerts, log search and retention controls, and accessibility improvements.
+
+
 ## [0.1.8] - 2026-06-25
 
 ### Changed
