@@ -1,54 +1,212 @@
 # SMS Quick Forwarder
 
-轻量自用版安卓短信转发器。收到短信后，自动转发到用户设置的另一个手机号。
+SmsQuickForwarder is a lightweight, open-source Android app for forwarding ordinary SMS messages without network access. It can forward matching SMS messages to a user-configured phone number based on sender or message-body rules.
+
+短信快转发是一个轻量、开源、无网络权限的 Android 普通短信自动转发工具。它可以按照发送号码或短信正文规则，将符合条件的 SMS 转发到指定号码。
+
+## Features
+
+- Forward ordinary SMS to a configured target phone number.
+- Supports forwarding all SMS or forwarding matched SMS only.
+- Local INCLUDE and EXCLUDE rules.
+- Match by sender, body, or both.
+- Match modes: contains, equals, starts with, and regular expression.
+- Rule testing tool that never sends a real SMS.
+- Long SMS forwarding with multipart sending.
+- Sent-result tracking and limited retry.
+- Loop protection for messages from the target number and messages containing `[SMS Forward]`.
+- Foreground service and boot restore when forwarding was enabled.
+- Debug logs and privacy-safe Debug JSON export.
+- Phone numbers and message content are masked by default in diagnostics.
+- No ads, no analytics SDK, and no `INTERNET` permission.
 
 ## 功能
-- 设置目标手机号
-- 启用/关闭短信转发
-- 监听收到的短信
-- 使用 SmsManager 转发短信
-- 长短信自动拆分
-- 防循环：跳过目标号码发来的短信、跳过包含 `[SMS Forward]` 的短信
-- 本地最近日志
-- 发送失败最多重试 2 次
-- 前台服务常驻通知
-- 开机后恢复运行状态
 
-## 权限
-- RECEIVE_SMS
-- SEND_SMS
-- RECEIVE_BOOT_COMPLETED
-- FOREGROUND_SERVICE
-- POST_NOTIFICATIONS(Android 13+)
+- 将普通 SMS 自动转发到用户设置的目标手机号。
+- 支持转发全部短信，也支持仅转发符合规则的短信。
+- 本地 INCLUDE / EXCLUDE 规则。
+- 支持按发送号码、短信正文或任意字段匹配。
+- 支持包含、完全相同、以此开头、正则表达式匹配。
+- 本地规则测试工具，不会真正发送短信。
+- 长短信 multipart 转发。
+- 发送回执记录和有限重试。
+- 防循环：跳过目标号码发来的短信，跳过包含 `[SMS Forward]` 的短信。
+- 前台服务和开机恢复。
+- 调试日志和隐私安全的 Debug JSON 导出。
+- 诊断信息默认遮罩手机号和短信内容。
+- 无广告、无统计 SDK、无 `INTERNET` 权限。
 
-## 使用
-1. 用 Android Studio 打开项目。
-2. 真机运行，不建议模拟器。
-3. 授权短信接收/发送权限。
-4. 输入目标手机号并保存。
-5. 打开启用转发。
-6. 给本机发一条测试短信，看目标手机号是否收到转发。
+## SMS And RCS
 
-## 注意
-- 这是自用 APK，不适合上架 Google Play。
+This app listens for standard Android SMS broadcasts. It does not read or forward RCS messages.
+
+本 App 只支持 Android 普通 SMS 广播，不读取、不转发 RCS 消息。
+
+## Permissions
+
+Actual permissions declared by the app:
+
+| Permission | Purpose |
+| --- | --- |
+| `RECEIVE_SMS` | Receive ordinary incoming SMS broadcasts. |
+| `SEND_SMS` | Forward SMS to the configured target number. |
+| `RECEIVE_BOOT_COMPLETED` | Restore the foreground service after reboot when forwarding was enabled. |
+| `FOREGROUND_SERVICE` | Keep the forwarding service visible and running. |
+| `FOREGROUND_SERVICE_DATA_SYNC` | Foreground service type on recent Android versions. |
+| `POST_NOTIFICATIONS` | Show the required foreground-service notification on Android 13+. |
+
+The app does not request:
+
+- `INTERNET`
+- contacts permissions
+- location permissions
+- call-log permissions
+- storage permissions
+- notification-listener permissions
+
+## Privacy
+
+- No SMS content is uploaded.
+- No phone numbers, rules, logs, or device data are sent to any server.
+- The app has no network permission.
+- Target number, rules, and logs are stored only on the device.
+- Debug JSON leaves the app only when the user explicitly shares or copies it.
+- Debug exports mask phone numbers and message previews by default.
+
+See [PRIVACY.md](PRIVACY.md) for details.
+
+## Installation
+
+1. Download a Release APK signed by the published certificate.
+2. Install it on an Android phone with SMS capability.
+3. Grant SMS receive/send permissions and notification permission if required.
+4. Set the forwarding target number.
+5. Enable SMS forwarding.
+6. Send a test SMS to the phone and confirm the target number receives it.
+
+Automatic SMS forwarding may incur carrier SMS charges.
+
+## Build
+
+Use Android Studio or command line. If the project has a Gradle wrapper, prefer `./gradlew`; otherwise use the installed `gradle` command.
+
+```bash
+./gradlew testDebugUnitTest
+./gradlew assembleDebug
+```
+
+Without a wrapper:
+
+```bash
+gradle --no-daemon testDebugUnitTest
+gradle --no-daemon assembleDebug
+```
+
+CI builds only the debug APK and runs unit tests. CI does not use the Release keystore.
+
+## Release Signing
+
+Release builds require a local keystore and `keystore/keystore.properties`. Do not commit either file.
+
+1. Copy the example:
+
+```bash
+cp keystore/keystore.properties.example keystore/keystore.properties
+```
+
+2. Generate or provide a private keystore:
+
+```bash
+mkdir -p keystore
+keytool -genkeypair \
+  -v \
+  -storetype JKS \
+  -keystore keystore/smsquickforwarder-release.jks \
+  -alias smsquickforwarder \
+  -keyalg RSA \
+  -keysize 4096 \
+  -validity 10000
+```
+
+3. Fill `keystore/keystore.properties` with local private values:
+
+```properties
+storeFile=smsquickforwarder-release.jks
+storePassword=your-store-password
+keyAlias=smsquickforwarder
+keyPassword=your-key-password
+```
+
+4. Build Release locally:
+
+```bash
+gradle --no-daemon clean testDebugUnitTest assembleRelease
+```
+
+Official project Release APKs are signed with this certificate SHA-256:
+
+```text
+BC:29:EC:4B:7D:30:CC:1B:48:33:0E:C7:07:CC:E8:0D:57:C2:52:31:3F:F1:9C:A4:B7:CE:00:D8:14:57:27:17
+```
+
+Verify a Release APK:
+
+```bash
+apksigner verify --verbose --print-certs SmsQuickForwarder-v0.1.6-7-release.apk
+```
+
+## Screenshots
+
+Screenshots will be added under [screenshots/](screenshots/) in a future update.
+
+## Known Limitations
+
+- Ordinary SMS only; no RCS support.
+- Background reliability depends on the device vendor and battery settings.
+- Dual-SIM details may require additional user-granted phone-state permission, which this app does not request by default.
+- Some carriers may charge for forwarded SMS.
+- This app is intended for devices you own or are authorized to manage.
+
+## Safety And Legal Notice
+
+Use this app only on devices you own or are authorized to administer. Make sure all forwarding complies with local law, carrier terms, workplace policy, and the privacy expectations of message senders. The app does not hide its launcher icon, does not delete SMS, and does not upload SMS.
+
+## License
+
+MIT. See [LICENSE](LICENSE).
+
+---
+
+# 中文说明
+
+## 项目简介
+
+短信快转发是一个轻量、开源、无网络权限的 Android 普通短信自动转发工具。它可以按照发送号码或短信正文规则，将符合条件的 SMS 转发到指定号码。
+
+## 使用提醒
+
+- 不支持 RCS。
+- 不上传短信。
+- 不连接任何服务器。
+- 不包含广告和统计 SDK。
+- 数据仅保存于本机。
+- 自动转发短信可能产生运营商短信费用。
 - 请只在你拥有或被授权管理的设备上使用。
-- 不会隐藏图标，不会删除短信，不会上传网络。
-- 部分手机需要手动关闭电池优化，否则后台可能被杀。
-- `0.1.3+4` 起 applicationId 改为 `com.oncet.smsquickforwarder`，Android 会把它当作新 App；旧版设置和日志不会自动继承。
 
-## 稳定性测试清单
-1. 前台打开 App 收短信
-2. App 切后台收短信
-3. 屏幕锁定后收短信
-4. 从最近任务划掉 App 后收短信
-5. 手机重启后不打开 App，直接收短信
-6. 放置 1 小时后收短信
-7. 放置 6 小时后收短信
-8. 飞行模式下收/发
-9. 无蜂窝信号时发送失败和重试
-10. 双卡环境下接收和发送
-11. 长短信 multipart
-12. 目标号码发来的短信防循环
-13. 包含 `[SMS Forward]` 的短信防循环
-14. 手机重启后前台服务恢复
-15. 日志和 Debug JSON 是否完整
+## 构建和签名
+
+调试构建使用：
+
+```bash
+./gradlew testDebugUnitTest
+./gradlew assembleDebug
+```
+
+如果没有 Gradle wrapper，可使用：
+
+```bash
+gradle --no-daemon testDebugUnitTest
+gradle --no-daemon assembleDebug
+```
+
+正式 Release 构建必须配置本地 `keystore/keystore.properties`，并使用同一个签名证书持续升级安装。不要提交 keystore、密码或 `keystore.properties`。

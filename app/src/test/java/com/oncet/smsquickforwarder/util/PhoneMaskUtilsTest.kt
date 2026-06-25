@@ -6,12 +6,12 @@ import org.junit.Test
 class PhoneMaskUtilsTest {
     @Test
     fun masksUsInternationalNumber() {
-        assertEquals("+1******6666", PhoneMaskUtils.mask("+12397106666"))
+        assertEquals("+1******6666", PhoneMaskUtils.mask("+15550106666"))
     }
 
     @Test
     fun masksTenDigitNumber() {
-        assertEquals("23****6666", PhoneMaskUtils.mask("2397106666"))
+        assertEquals("55****6666", PhoneMaskUtils.mask("5550106666"))
     }
 
     @Test

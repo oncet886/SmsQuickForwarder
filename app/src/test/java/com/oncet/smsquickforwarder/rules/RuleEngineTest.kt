@@ -47,12 +47,12 @@ class RuleEngineTest {
     }
 
     @Test fun senderContainsMatchesNormalizedPhone() {
-        val result = eval(ForwardMode.MATCH_ONLY, listOf(rule("Sender", RuleType.INCLUDE, RuleField.SENDER, RuleMatchMode.CONTAINS, "239710")), sender = "+1 239-710-6666")
+        val result = eval(ForwardMode.MATCH_ONLY, listOf(rule("Sender", RuleType.INCLUDE, RuleField.SENDER, RuleMatchMode.CONTAINS, "555010")), sender = "+1 555-010-6666")
         assertTrue(result.shouldForward)
     }
 
     @Test fun senderEqualsAllowsLastTenDigits() {
-        val result = eval(ForwardMode.MATCH_ONLY, listOf(rule("Sender", RuleType.INCLUDE, RuleField.SENDER, RuleMatchMode.EQUALS, "2397106666")), sender = "+1 (239) 710-6666")
+        val result = eval(ForwardMode.MATCH_ONLY, listOf(rule("Sender", RuleType.INCLUDE, RuleField.SENDER, RuleMatchMode.EQUALS, "5550106666")), sender = "+1 (555) 010-6666")
         assertTrue(result.shouldForward)
     }
 
@@ -91,9 +91,9 @@ class RuleEngineTest {
 
     @Test fun loopGuardBeatsUserRules() {
         val result = RuleEngine.evaluate(
-            sender = "+12397106666",
+            sender = "+15550106666",
             body = "Your code is 123456",
-            targetPhone = "2397106666",
+            targetPhone = "5550106666",
             mode = ForwardMode.MATCH_ONLY,
             rules = listOf(rule("Code", RuleType.INCLUDE, RuleField.BODY, RuleMatchMode.CONTAINS, "code")),
             applyLoopGuard = true
@@ -110,9 +110,9 @@ class RuleEngineTest {
     private fun eval(
         mode: ForwardMode,
         rules: List<SmsRule>,
-        sender: String = "+12397106666",
+        sender: String = "+15550106666",
         body: String = "Your code is 123456. STOP to unsubscribe"
-    ): RuleEvaluation = RuleEngine.evaluate(sender, body, "+16025551234", mode, rules, applyLoopGuard = true)
+    ): RuleEvaluation = RuleEngine.evaluate(sender, body, "+15550109999", mode, rules, applyLoopGuard = true)
 
     private fun rule(
         name: String,

@@ -35,7 +35,7 @@ class RuleTestActivity : Activity() {
         root.addView(Button(this).apply {
             text = "填入验证码示例"
             setOnClickListener {
-                senderInput.setText("+12397106666")
+                senderInput.setText("+15550106666")
                 bodyInput.setText("Your verification code is 123456")
             }
         })
