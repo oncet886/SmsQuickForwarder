@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.1.7] - 2026-06-25
+
+### Changed
+- Redesign the main UI, add bottom navigation, logs view, about page, version display, and offline changelog.
+
+
 ## [0.1.6] - 2026-06-24
 
 ### Changed
