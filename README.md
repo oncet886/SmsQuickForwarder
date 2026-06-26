@@ -24,6 +24,7 @@ SmsQuickForwarder is a lightweight, open-source Android app for forwarding ordin
 - Local health checks for forwarding readiness and common failure causes.
 - Forwarding failure notifications with masked details.
 - Local log search, filtering, statistics, and retention controls.
+- System bar, display cutout, gesture navigation, and keyboard inset handling for modern Android devices.
 - No ads and no analytics SDK.
 
 ## 功能
@@ -46,6 +47,7 @@ SmsQuickForwarder is a lightweight, open-source Android app for forwarding ordin
 - 本地运行健康检查，帮助定位常见转发问题。
 - 转发失败通知，默认脱敏显示。
 - 本地日志搜索、筛选、统计和保留时间控制。
+- 适配现代 Android 的状态栏、刘海/挖孔、手势导航和键盘遮挡。
 - 无广告、无统计 SDK。
 
 ## SMS And RCS

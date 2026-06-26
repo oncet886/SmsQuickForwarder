@@ -16,6 +16,7 @@ import com.oncet.smsquickforwarder.rules.ForwardMode
 import com.oncet.smsquickforwarder.rules.RuleStore
 import com.oncet.smsquickforwarder.rules.RuleType
 import com.oncet.smsquickforwarder.rules.SmsRule
+import com.oncet.smsquickforwarder.ui.SystemBarsInsets
 
 class RulesActivity : Activity() {
     private lateinit var root: LinearLayout
@@ -26,7 +27,9 @@ class RulesActivity : Activity() {
             orientation = LinearLayout.VERTICAL
             setPadding(32, 40, 32, 32)
         }
-        setContentView(ScrollView(this).apply { addView(root) })
+        val scroll = ScrollView(this).apply { addView(root) }
+        setContentView(scroll)
+        with(SystemBarsInsets) { applyStandardSystemBars(scroll, handleIme = false) }
     }
 
     override fun onResume() {

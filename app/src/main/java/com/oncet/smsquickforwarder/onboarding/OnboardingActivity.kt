@@ -19,6 +19,7 @@ import com.oncet.smsquickforwarder.R
 import com.oncet.smsquickforwarder.data.SettingsStore
 import com.oncet.smsquickforwarder.service.ForwardForegroundService
 import com.oncet.smsquickforwarder.sms.SmsForwarder
+import com.oncet.smsquickforwarder.ui.SystemBarsInsets
 import com.oncet.smsquickforwarder.ui.UiKit
 import com.oncet.smsquickforwarder.util.PhoneMaskUtils
 
@@ -31,7 +32,9 @@ class OnboardingActivity : Activity() {
         super.onCreate(savedInstanceState)
         step = OnboardingPreferences.step(this)
         root = UiKit.page(this)
-        setContentView(ScrollView(this).apply { addView(root) })
+        val scroll = ScrollView(this).apply { addView(root) }
+        setContentView(scroll)
+        with(SystemBarsInsets) { applyStandardSystemBars(scroll, handleIme = true) }
         render()
     }
 

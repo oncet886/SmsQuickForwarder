@@ -14,6 +14,7 @@ import android.widget.Toast
 import androidx.core.content.FileProvider
 import com.oncet.smsquickforwarder.R
 import com.oncet.smsquickforwarder.service.ForwardForegroundService
+import com.oncet.smsquickforwarder.ui.SystemBarsInsets
 import com.oncet.smsquickforwarder.ui.UiKit
 
 class BackupActivity : Activity() {
@@ -23,7 +24,9 @@ class BackupActivity : Activity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         root = UiKit.page(this)
-        setContentView(ScrollView(this).apply { addView(root) })
+        val scroll = ScrollView(this).apply { addView(root) }
+        setContentView(scroll)
+        with(SystemBarsInsets) { applyStandardSystemBars(scroll, handleIme = true) }
         render()
     }
 

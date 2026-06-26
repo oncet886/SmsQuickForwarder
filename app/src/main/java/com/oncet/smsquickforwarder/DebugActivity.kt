@@ -18,6 +18,7 @@ import android.widget.Toast
 import androidx.core.content.FileProvider
 import com.oncet.smsquickforwarder.data.ForwardLogStore
 import com.oncet.smsquickforwarder.debug.DebugInfoBuilder
+import com.oncet.smsquickforwarder.ui.SystemBarsInsets
 import java.io.File
 import java.io.OutputStreamWriter
 import java.text.SimpleDateFormat
@@ -105,7 +106,9 @@ class DebugActivity : Activity() {
         }
         root.addView(debugText)
 
-        setContentView(ScrollView(this).apply { addView(root) })
+        val scroll = ScrollView(this).apply { addView(root) }
+        setContentView(scroll)
+        with(SystemBarsInsets) { applyStandardSystemBars(scroll, handleIme = true) }
     }
 
     private fun refresh() {

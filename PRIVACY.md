@@ -68,6 +68,8 @@ Health checks and log search run locally on the device. Search terms are not sav
 
 Forwarding failure notifications use masked details and do not show full message bodies.
 
+Debug JSON may include non-sensitive window layout diagnostics such as status bar height, navigation bar height, display cutout inset, keyboard inset, screen size, and orientation. These values do not include SMS content, phone numbers, rules, logs, or device identifiers.
+
 ## Carrier Charges
 
 Forwarded SMS messages are sent through the device carrier and may incur SMS charges.

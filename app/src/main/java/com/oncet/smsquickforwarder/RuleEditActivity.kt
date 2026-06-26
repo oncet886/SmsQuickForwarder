@@ -18,6 +18,7 @@ import com.oncet.smsquickforwarder.rules.RuleMatchMode
 import com.oncet.smsquickforwarder.rules.RuleStore
 import com.oncet.smsquickforwarder.rules.RuleType
 import com.oncet.smsquickforwarder.rules.SmsRule
+import com.oncet.smsquickforwarder.ui.SystemBarsInsets
 
 class RuleEditActivity : Activity() {
     private lateinit var nameInput: EditText
@@ -69,7 +70,9 @@ class RuleEditActivity : Activity() {
             text = "取消"
             setOnClickListener { finish() }
         })
-        setContentView(ScrollView(this).apply { addView(root) })
+        val scroll = ScrollView(this).apply { addView(root) }
+        setContentView(scroll)
+        with(SystemBarsInsets) { applyStandardSystemBars(scroll, handleIme = true) }
     }
 
     private fun loadInitial() {

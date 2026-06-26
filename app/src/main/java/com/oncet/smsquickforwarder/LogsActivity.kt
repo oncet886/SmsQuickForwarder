@@ -12,6 +12,7 @@ import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.Toast
 import com.oncet.smsquickforwarder.data.ForwardLogStore
+import com.oncet.smsquickforwarder.ui.SystemBarsInsets
 import com.oncet.smsquickforwarder.ui.UiKit
 import com.oncet.smsquickforwarder.util.MessagePrivacyUtils
 import com.oncet.smsquickforwarder.util.PhoneMaskUtils
@@ -26,7 +27,9 @@ class LogsActivity : Activity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         root = UiKit.page(this)
-        setContentView(ScrollView(this).apply { addView(root) })
+        val scroll = ScrollView(this).apply { addView(root) }
+        setContentView(scroll)
+        with(SystemBarsInsets) { applyStandardSystemBars(scroll, handleIme = true) }
         render()
     }
 

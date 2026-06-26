@@ -10,6 +10,7 @@ import android.widget.TextView
 import com.oncet.smsquickforwarder.data.SettingsStore
 import com.oncet.smsquickforwarder.rules.RuleEngine
 import com.oncet.smsquickforwarder.rules.RuleStore
+import com.oncet.smsquickforwarder.ui.SystemBarsInsets
 
 class RuleTestActivity : Activity() {
     private lateinit var senderInput: EditText
@@ -51,7 +52,9 @@ class RuleTestActivity : Activity() {
             setOnClickListener { senderInput.setText(""); bodyInput.setText(""); resultText.text = "" }
         })
         root.addView(resultText)
-        setContentView(ScrollView(this).apply { addView(root) })
+        val scroll = ScrollView(this).apply { addView(root) }
+        setContentView(scroll)
+        with(SystemBarsInsets) { applyStandardSystemBars(scroll, handleIme = true) }
     }
 
     private fun test() {

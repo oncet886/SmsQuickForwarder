@@ -38,6 +38,7 @@ import com.oncet.smsquickforwarder.rules.RuleStore
 import com.oncet.smsquickforwarder.rules.RuleType
 import com.oncet.smsquickforwarder.service.ForwardForegroundService
 import com.oncet.smsquickforwarder.sms.SmsForwarder
+import com.oncet.smsquickforwarder.ui.SystemBarsInsets
 import com.oncet.smsquickforwarder.ui.UiKit
 import com.oncet.smsquickforwarder.update.UpdateCheckResult
 import com.oncet.smsquickforwarder.update.UpdateChecker
@@ -90,6 +91,7 @@ class MainActivity : Activity() {
         shell.addView(scroll)
         shell.addView(navRoot)
         setContentView(shell)
+        with(SystemBarsInsets) { applyMainSystemBars(shell, scroll, navRoot) }
     }
 
     private fun render() {

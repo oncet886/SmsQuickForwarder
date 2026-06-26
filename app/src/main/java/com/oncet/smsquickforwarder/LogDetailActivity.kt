@@ -4,6 +4,7 @@ import android.app.Activity
 import android.os.Bundle
 import android.widget.ScrollView
 import com.oncet.smsquickforwarder.data.ForwardLogStore
+import com.oncet.smsquickforwarder.ui.SystemBarsInsets
 import com.oncet.smsquickforwarder.ui.UiKit
 import com.oncet.smsquickforwarder.util.PhoneMaskUtils
 
@@ -37,7 +38,9 @@ class LogDetailActivity : Activity() {
                 addView(UiKit.body(this@LogDetailActivity, "失败原因：${obj.optString("errorMessage").ifBlank { obj.optString("skipReason").ifBlank { "无" } }}"))
             })
         }
-        setContentView(ScrollView(this).apply { addView(root) })
+        val scroll = ScrollView(this).apply { addView(root) }
+        setContentView(scroll)
+        with(SystemBarsInsets) { applyStandardSystemBars(scroll, handleIme = false) }
     }
 
     companion object {

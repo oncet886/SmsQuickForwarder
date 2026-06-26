@@ -12,6 +12,7 @@ import com.oncet.smsquickforwarder.data.ForwardLogStore
 import com.oncet.smsquickforwarder.data.SettingsStore
 import com.oncet.smsquickforwarder.onboarding.OnboardingPreferences
 import com.oncet.smsquickforwarder.rules.RuleStore
+import com.oncet.smsquickforwarder.ui.SystemBarsInsets
 import com.oncet.smsquickforwarder.update.UpdatePreferences
 import com.oncet.smsquickforwarder.util.PhoneMaskUtils
 import org.json.JSONArray
@@ -31,6 +32,7 @@ object DebugInfoBuilder {
             root.put("appBuild", appBuild(context))
             root.put("simInfo", simInfo(context))
             root.put("batteryOptimization", batteryOptimization(context))
+            root.put("windowInsets", SystemBarsInsets.lastInsetsJson(context))
             root.put("permissionGuidance", permissionGuidance(context))
             root.put("stabilitySelfCheck", stabilitySelfCheck(context))
             root.put("rules", RuleStore.summaryJson(context, includeSensitivePatterns = includeFullPhone))
