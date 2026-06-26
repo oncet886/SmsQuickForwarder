@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.2.0] - 2026-06-25
+
+### Changed
+- Fix status bar, navigation bar, display cutout, keyboard, and small-screen layout overlap across Android devices.
+
+
 ## [0.1.9] - 2026-06-25
 
 ### Changed
